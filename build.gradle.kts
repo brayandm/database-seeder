@@ -1,5 +1,7 @@
 plugins {
     id("java")
+    checkstyle
+    id("com.diffplug.spotless") version "8.4.0"
 }
 
 group = "org.example"
@@ -17,4 +19,20 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    }
+}
+
+spotless {
+    java {
+        googleJavaFormat("1.25.2")
+    }
+}
+
+checkstyle {
+    toolVersion = "10.26.1"
 }
