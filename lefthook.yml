@@ -1,0 +1,9 @@
+pre-push:
+  commands:
+    java-checks:
+      run: ./gradlew check
+
+commit-msg:
+  commands:
+    conventional-commit:
+      run: npx --no-install commitlint --edit "{1}"
