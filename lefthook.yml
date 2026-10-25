@@ -1,3 +1,8 @@
+pre-commit:
+  commands:
+    java-checks:
+      run: ./gradlew check
+
 pre-push:
   commands:
     java-checks:
