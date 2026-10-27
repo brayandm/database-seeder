@@ -1,6 +1,27 @@
+colors: false
+output: false
+
 pre-commit:
-  commands:
-    java-checks:
+  jobs:
+    - name: format-staged-java
+      glob: "*.java"
+      run: >-
+        sh -c '
+        paths="";
+        for path do
+          case "$path" in
+            *,*) printf "Spotless cannot select a path containing a comma: %s\n" "$path" >&2; exit 1 ;;
+          esac;
+          if ! git diff --quiet -- "$path"; then
+            printf "Stage or stash the remaining changes before formatting: %s\n" "$path" >&2;
+            exit 1;
+          fi;
+          paths="$paths${paths:+,}$PWD/$path";
+        done;
+        ./gradlew spotlessApply "-PspotlessIdeHook=$paths"
+        ' sh {staged_files}
+      stage_fixed: true
+    - name: java-checks
       run: ./gradlew check
 
 pre-push:
@@ -11,4 +32,4 @@ pre-push:
 commit-msg:
   commands:
     conventional-commit:
-      run: npx --no-install commitlint --edit "{1}"
+      run: npx --no-install commitlint --color=false --edit "{1}"
