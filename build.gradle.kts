@@ -1,5 +1,5 @@
 plugins {
-    id("java")
+    `java-library`
     checkstyle
     id("com.diffplug.spotless") version "8.4.0"
 }
