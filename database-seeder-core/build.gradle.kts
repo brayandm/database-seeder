@@ -35,4 +35,5 @@ spotless {
 
 checkstyle {
     toolVersion = "10.26.1"
+    configDirectory.set(rootProject.layout.projectDirectory.dir("config/checkstyle"))
 }
