@@ -1,6 +1,7 @@
 package org.example.seeder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -69,6 +70,29 @@ class SeederRunnerTest {
         assertThrows(IllegalStateException.class, () -> runner.runAll(SeedOptions.DEFAULT));
 
     assertEquals("intentional failure", failure.getCause().getMessage());
+    assertFalse(dependent.ran);
+  }
+
+  @Test
+  void rejectsDuplicateRegistrationsAndUnknownTargets() {
+    assertThrows(
+        IllegalArgumentException.class, () -> new SeederRunner(List.of(new Users(), new Users())));
+
+    var runner = new SeederRunner(List.of());
+    assertThrows(
+        IllegalArgumentException.class, () -> runner.run(Users.class, SeedOptions.DEFAULT));
+    assertThrows(
+        IllegalArgumentException.class, () -> runner.runOnly(Users.class, SeedOptions.DEFAULT));
+  }
+
+  @Test
+  void runsOnlyTheTargetWhenItsDependenciesAreRegistered() {
+    var users = new Users();
+    var target = new StandaloneTarget();
+    new SeederRunner(List.of(users, target)).runOnly(StandaloneTarget.class, SeedOptions.DEFAULT);
+
+    assertTrue(users.samples.isEmpty());
+    assertTrue(target.ran);
   }
 
   @Seeder
@@ -136,9 +160,23 @@ class SeederRunnerTest {
 
   @Seeder(dependsOn = Failing.class)
   private static final class MustNotRun implements SeedTask<Void> {
+    private boolean ran;
+
     @Override
     public Void run(SeedContext context) {
-      throw new AssertionError("Failed dependencies should prevent execution");
+      ran = true;
+      return null;
+    }
+  }
+
+  @Seeder(dependsOn = Users.class)
+  private static final class StandaloneTarget implements SeedTask<Void> {
+    private boolean ran;
+
+    @Override
+    public Void run(SeedContext context) {
+      ran = true;
+      return null;
     }
   }
 }
