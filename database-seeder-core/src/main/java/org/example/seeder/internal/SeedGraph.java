@@ -1,9 +1,13 @@
 package org.example.seeder.internal;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Deque;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -33,43 +37,53 @@ public final class SeedGraph {
   public List<Class<? extends SeedTask<?>>> order(
       Collection<Class<? extends SeedTask<?>>> targets) {
     var order = new ArrayList<Class<? extends SeedTask<?>>>();
-    var path = new ArrayList<Class<? extends SeedTask<?>>>();
+    var path = new LinkedHashSet<Class<? extends SeedTask<?>>>();
     var visited = new HashSet<Class<? extends SeedTask<?>>>();
+    var stack = new ArrayDeque<Frame>();
     for (var task : targets) {
-      visit(task, path, visited, order);
+      if (!visited.contains(task)) {
+        push(task, path, stack);
+      }
+      while (!stack.isEmpty()) {
+        var frame = stack.getLast();
+        if (frame.dependencies().hasNext()) {
+          var dependency = frame.dependencies().next();
+          if (!visited.contains(dependency)) {
+            push(dependency, path, stack);
+          }
+        } else {
+          stack.removeLast();
+          path.remove(frame.task());
+          visited.add(frame.task());
+          order.add(frame.task());
+        }
+      }
     }
     return order;
   }
 
-  private void visit(
+  private void push(
       Class<? extends SeedTask<?>> task,
-      List<Class<? extends SeedTask<?>>> path,
-      Set<Class<? extends SeedTask<?>>> visited,
-      List<Class<? extends SeedTask<?>>> order) {
-    if (visited.contains(task)) {
-      return;
-    }
+      Set<Class<? extends SeedTask<?>>> path,
+      Deque<Frame> stack) {
     if (!edges.containsKey(task)) {
       throw new IllegalArgumentException(
           "Missing seeder: " + task.getName() + " in " + names(path));
     }
-    int cycleStart = path.indexOf(task);
-    if (cycleStart >= 0) {
-      var cycle = new ArrayList<>(path.subList(cycleStart, path.size()));
+    if (!path.add(task)) {
+      var route = new ArrayList<>(path);
+      var cycle = route.subList(route.indexOf(task), route.size());
       cycle.add(task);
       throw new IllegalArgumentException("Circular dependency: " + names(cycle));
     }
 
-    path.add(task);
-    for (var dependency : dependencies(task)) {
-      visit(dependency, path, visited, order);
-    }
-    path.removeLast();
-    visited.add(task);
-    order.add(task);
+    stack.addLast(new Frame(task, dependencies(task).iterator()));
   }
 
-  private static String names(List<Class<? extends SeedTask<?>>> path) {
+  private record Frame(
+      Class<? extends SeedTask<?>> task, Iterator<Class<? extends SeedTask<?>>> dependencies) {}
+
+  private static String names(Collection<Class<? extends SeedTask<?>>> path) {
     return path.stream().map(Class::getSimpleName).collect(Collectors.joining(" -> "));
   }
 }
