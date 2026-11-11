@@ -1,4 +1,4 @@
-package org.example.seeder;
+package io.github.brayandm.seeder;
 
 /** Settings shared by all seeders in one run. */
 public record SeedOptions(boolean parallel, double scale, long seed) {

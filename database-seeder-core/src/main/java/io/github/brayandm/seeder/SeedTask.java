@@ -1,4 +1,4 @@
-package org.example.seeder;
+package io.github.brayandm.seeder;
 
 /** Produces a result that dependent seeders can read during the same run. */
 @FunctionalInterface

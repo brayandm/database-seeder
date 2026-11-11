@@ -1,5 +1,6 @@
-package org.example.seeder;
+package io.github.brayandm.seeder;
 
+import io.github.brayandm.seeder.internal.SeedGraph;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -10,7 +11,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executors;
-import org.example.seeder.internal.SeedGraph;
 
 /** Executes explicitly registered seeders. Each call owns its dependency results. */
 public final class SeederRunner {

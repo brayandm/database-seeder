@@ -1,8 +1,11 @@
-package org.example.seeder.internal;
+package io.github.brayandm.seeder.internal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.brayandm.seeder.SeedOptions;
+import io.github.brayandm.seeder.SeedTask;
+import io.github.brayandm.seeder.SeederRunner;
 import java.io.ByteArrayOutputStream;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -19,9 +22,6 @@ import java.util.concurrent.atomic.AtomicIntegerArray;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import javax.tools.ToolProvider;
-import org.example.seeder.SeedOptions;
-import org.example.seeder.SeedTask;
-import org.example.seeder.SeederRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -150,9 +150,9 @@ class SeedGraphStressTest {
         new StringBuilder(
             """
                                 import java.util.function.BiConsumer;
-                                import org.example.seeder.SeedContext;
-                                import org.example.seeder.SeedTask;
-                                import org.example.seeder.Seeder;
+                                import io.github.brayandm.seeder.SeedContext;
+                                import io.github.brayandm.seeder.SeedTask;
+                                import io.github.brayandm.seeder.Seeder;
 
                                 public class GeneratedSeeders {
                                 """);

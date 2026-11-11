@@ -1,4 +1,4 @@
-package org.example.seeder;
+package io.github.brayandm.seeder;
 
 import java.util.Map;
 import java.util.Set;

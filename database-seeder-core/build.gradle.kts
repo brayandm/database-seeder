@@ -4,7 +4,7 @@ plugins {
     id("com.diffplug.spotless") version "8.4.0"
 }
 
-group = "org.example"
+group = "io.github.brayandm"
 version = "1.0-SNAPSHOT"
 
 repositories {

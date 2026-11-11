@@ -1,12 +1,12 @@
-package org.example.seeder.internal;
+package io.github.brayandm.seeder.internal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.brayandm.seeder.SeedTask;
+import io.github.brayandm.seeder.Seeder;
 import java.util.List;
-import org.example.seeder.SeedTask;
-import org.example.seeder.Seeder;
 import org.junit.jupiter.api.Test;
 
 class SeedGraphTest {

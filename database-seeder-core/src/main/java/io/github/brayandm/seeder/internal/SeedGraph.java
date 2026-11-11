@@ -1,5 +1,7 @@
-package org.example.seeder.internal;
+package io.github.brayandm.seeder.internal;
 
+import io.github.brayandm.seeder.SeedTask;
+import io.github.brayandm.seeder.Seeder;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -12,8 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.example.seeder.SeedTask;
-import org.example.seeder.Seeder;
 
 public final class SeedGraph {
   private final Map<Class<? extends SeedTask<?>>, List<Class<? extends SeedTask<?>>>> edges =

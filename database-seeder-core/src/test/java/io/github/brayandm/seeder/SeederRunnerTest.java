@@ -1,4 +1,4 @@
-package org.example.seeder;
+package io.github.brayandm.seeder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
