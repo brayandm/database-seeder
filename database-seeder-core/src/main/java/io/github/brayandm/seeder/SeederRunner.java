@@ -1,6 +1,8 @@
 package io.github.brayandm.seeder;
 
 import io.github.brayandm.seeder.internal.SeedGraph;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -11,13 +13,25 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 
 /** Executes explicitly registered seeders. Each call owns its dependency results. */
 public final class SeederRunner {
   private final Map<Class<? extends SeedTask<?>>, SeedTask<?>> tasks = new LinkedHashMap<>();
+  private static final Consumer<SeederEvent> IGNORE_EVENTS = event -> {};
   private final SeedGraph graph;
+  private final Consumer<SeederEvent> listener;
 
   public SeederRunner(Collection<? extends SeedTask<?>> seeders) {
+    this(seeders, IGNORE_EVENTS);
+  }
+
+  /**
+   * Reports progress on the executing threads. The listener must be thread-safe in parallel mode
+   * and must return normally.
+   */
+  public SeederRunner(Collection<? extends SeedTask<?>> seeders, Consumer<SeederEvent> listener) {
+    this.listener = Objects.requireNonNull(listener);
     for (var seeder : seeders) {
       // getClass() erases the task's result type, which is recovered by SeedContext.get.
       @SuppressWarnings("unchecked")
@@ -105,13 +119,27 @@ public final class SeederRunner {
       Map<Class<? extends SeedTask<?>>, Object> inputs,
       SeedOptions options) {
     var context = new SeedContext(task, Set.copyOf(graph.dependencies(task)), inputs, options);
+    report(task, SeederEvent.Status.STARTED, Duration.ZERO);
+    long started = System.nanoTime();
+    var status = SeederEvent.Status.FAILED;
     try {
-      return tasks.get(task).run(context);
+      var result = tasks.get(task).run(context);
+      status = SeederEvent.Status.COMPLETED;
+      return result;
     } catch (InterruptedException failure) {
       Thread.currentThread().interrupt();
       throw new IllegalStateException("Seeder interrupted: " + task.getName(), failure);
     } catch (Exception failure) {
       throw new IllegalStateException("Seeder failed: " + task.getName(), failure);
+    } finally {
+      report(task, status, Duration.ofNanos(System.nanoTime() - started));
+    }
+  }
+
+  private void report(
+      Class<? extends SeedTask<?>> task, SeederEvent.Status status, Duration elapsed) {
+    if (listener != IGNORE_EVENTS) {
+      listener.accept(new SeederEvent(task, status, Instant.now(), elapsed));
     }
   }
 }
