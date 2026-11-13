@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.github.brayandm.seeder.SeedContext;
 import io.github.brayandm.seeder.SeedTask;
 import io.github.brayandm.seeder.Seeder;
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
@@ -29,6 +30,12 @@ class SeederCliTest {
     assertEquals(0, run(List.of(posts, users, other)));
     assertEquals(3, posts.userCount);
     assertTrue(other.ran);
+    var progress = output.toString(StandardCharsets.UTF_8);
+    assertTrue(progress.contains("Started Users"));
+    assertTrue(progress.indexOf("Completed Users") < progress.indexOf("Started Posts"));
+    assertTrue(progress.contains("Completed Posts in "));
+    assertTrue(progress.contains("started=3, completed=3, failed=0"));
+    assertFalse(progress.contains("Run completed"));
   }
 
   @Test
@@ -105,7 +112,47 @@ class SeederCliTest {
   void reportsExecutionErrors() {
     assertEquals(1, run(List.of(new Posts())));
     assertTrue(errors.toString(StandardCharsets.UTF_8).contains("Missing seeder"));
+    assertFalse(output.toString(StandardCharsets.UTF_8).contains("Started "));
   }
+
+  @Test
+  void flushesProgressBeforeTheSeederFinishes() {
+    var buffered = new PrintStream(new BufferedOutputStream(output), false, StandardCharsets.UTF_8);
+    SeedTask<Void> task =
+        context -> {
+          var progress = output.toString(StandardCharsets.UTF_8);
+          assertTrue(progress.contains("started=1, completed=0, failed=0"));
+          assertFalse(progress.contains("Completed "));
+          return null;
+        };
+
+    assertEquals(0, SeederCli.run(new String[0], List.of(task), buffered, System.err));
+    assertTrue(
+        output.toString(StandardCharsets.UTF_8).contains("started=1, completed=1, failed=0"));
+  }
+
+  @Test
+  void reportsFailedSeedersAndVerboseDetails() {
+    assertEquals(1, run(List.of(new Broken(), new Blocked()), "--verbose", "--linear"));
+
+    var progress = output.toString(StandardCharsets.UTF_8);
+    assertTrue(progress.contains("mode=sequential scale=1.0"));
+    assertTrue(progress.contains("Started " + Broken.class.getName()));
+    assertTrue(progress.contains("Failed " + Broken.class.getName() + " in "));
+    assertFalse(progress.contains(Blocked.class.getName()));
+    assertTrue(progress.contains("started=1, completed=0, failed=1"));
+    assertTrue(errors.toString(StandardCharsets.UTF_8).contains("intentional failure"));
+  }
+
+  private static final class Broken implements SeedTask<Void> {
+    @Override
+    public Void run(SeedContext context) {
+      throw new IllegalStateException("intentional failure");
+    }
+  }
+
+  @Seeder(dependsOn = Broken.class)
+  private static final class Blocked extends Marker {}
 
   private int run(List<? extends SeedTask<?>> seeders, String... args) {
     return SeederCli.run(

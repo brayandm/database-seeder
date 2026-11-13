@@ -11,13 +11,14 @@ import java.util.stream.Collectors;
 public final class SeederCli {
   private static final String HELP =
       """
-      Usage: [--seeder=<class>] [--only] [--linear] [--scale=<number>] [--help]
+      Usage: [--seeder=<class>] [--only] [--linear] [--scale=<number>] [--verbose] [--help]
 
         --seeder  Run the named seeder and its dependencies. Accepts a fully
                   qualified class name or an unambiguous simple name.
         --only    Run just the named seeder. Requires --seeder.
         --linear  Run seeders sequentially.
         --scale   Set a finite positive scale. Defaults to 1.
+        --verbose Show fully qualified names and execution settings.
         --help    Show this help.
       """;
 
@@ -37,17 +38,20 @@ public final class SeederCli {
       command = Arguments.parse(args);
       if (command.help()) {
         out.print(HELP);
+        out.flush();
         return 0;
       }
       target = command.seeder() == null ? null : resolve(command.seeder(), seeders);
     } catch (IllegalArgumentException failure) {
       err.println(failure.getMessage());
       err.println("Use --help for usage.");
+      err.flush();
       return 2;
     }
 
+    var progress = new ConsoleProgress(out, command);
     try {
-      var runner = new SeederRunner(seeders);
+      var runner = new SeederRunner(seeders, progress);
       if (target == null) {
         runner.runAll(command.options());
       } else if (command.only()) {
@@ -58,6 +62,7 @@ public final class SeederCli {
       return 0;
     } catch (RuntimeException failure) {
       failure.printStackTrace(err);
+      err.flush();
       return 1;
     }
   }

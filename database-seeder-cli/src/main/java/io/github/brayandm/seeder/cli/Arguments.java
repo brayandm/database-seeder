@@ -3,7 +3,7 @@ package io.github.brayandm.seeder.cli;
 import io.github.brayandm.seeder.SeedOptions;
 import java.util.HashSet;
 
-record Arguments(String seeder, boolean only, boolean help, SeedOptions options) {
+record Arguments(String seeder, boolean only, boolean help, boolean verbose, SeedOptions options) {
   static Arguments parse(String[] args) {
     var seen = new HashSet<String>();
     String seeder = null;
@@ -20,7 +20,7 @@ record Arguments(String seeder, boolean only, boolean help, SeedOptions options)
       switch (option) {
         case "--seeder" -> seeder = requireValue(option, value);
         case "--scale" -> scale = parseScale(requireValue(option, value));
-        case "--only", "--linear", "--help" -> {
+        case "--only", "--linear", "--help", "--verbose" -> {
           if (value != null) {
             throw new IllegalArgumentException(option + " does not take a value");
           }
@@ -34,7 +34,8 @@ record Arguments(String seeder, boolean only, boolean help, SeedOptions options)
       throw new IllegalArgumentException("--only requires --seeder");
     }
     var options = new SeedOptions(!seen.contains("--linear"), scale, SeedOptions.DEFAULT.seed());
-    return new Arguments(seeder, only, seen.contains("--help"), options);
+    return new Arguments(
+        seeder, only, seen.contains("--help"), seen.contains("--verbose"), options);
   }
 
   private static String requireValue(String option, String value) {
