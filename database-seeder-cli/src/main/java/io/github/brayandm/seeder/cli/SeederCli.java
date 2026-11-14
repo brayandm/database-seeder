@@ -44,6 +44,16 @@ public final class SeederCli {
   /** Runs the CLI using caller-provided output streams. */
   public static int run(
       String[] args, Collection<? extends SeedTask<?>> seeders, PrintStream out, PrintStream err) {
+    return run(args, seeders, Object::getClass, out, err);
+  }
+
+  /** Uses the underlying seeder classes when the caller supplies proxy instances. */
+  public static int run(
+      String[] args,
+      Collection<? extends SeedTask<?>> seeders,
+      Function<SeedTask<?>, Class<?>> seederType,
+      PrintStream out,
+      PrintStream err) {
     return run(
         args,
         command -> {
@@ -52,6 +62,7 @@ public final class SeederCli {
           }
           return seeders;
         },
+        seederType,
         out,
         err);
   }
@@ -60,6 +71,7 @@ public final class SeederCli {
     return run(
         args,
         command -> command.discover() ? ClasspathSeeders.discover(loader) : discoverSeeders(loader),
+        Object::getClass,
         out,
         err);
   }
@@ -67,6 +79,7 @@ public final class SeederCli {
   private static int run(
       String[] args,
       Function<Arguments, Collection<? extends SeedTask<?>>> source,
+      Function<SeedTask<?>, Class<?>> seederType,
       PrintStream out,
       PrintStream err) {
     Arguments command;
@@ -85,12 +98,12 @@ public final class SeederCli {
       var seeders = source.apply(command);
       Class<? extends SeedTask<?>> target;
       try {
-        target = command.seeder() == null ? null : resolve(command.seeder(), seeders);
+        target = command.seeder() == null ? null : resolve(command.seeder(), seeders, seederType);
       } catch (IllegalArgumentException failure) {
         return usageError(failure, err);
       }
 
-      var runner = new SeederRunner(seeders, new ConsoleProgress(out, command));
+      var runner = new SeederRunner(seeders, new ConsoleProgress(out, command), seederType);
       if (target == null) {
         runner.runAll(command.options());
       } else if (command.only()) {
@@ -129,12 +142,14 @@ public final class SeederCli {
   }
 
   private static Class<? extends SeedTask<?>> resolve(
-      String name, Collection<? extends SeedTask<?>> seeders) {
+      String name,
+      Collection<? extends SeedTask<?>> seeders,
+      Function<SeedTask<?>, Class<?>> seederType) {
     var matches = new LinkedHashSet<Class<? extends SeedTask<?>>>();
     for (var seeder : seeders) {
       // A SeedTask instance guarantees that its runtime class implements SeedTask.
       @SuppressWarnings("unchecked")
-      var type = (Class<? extends SeedTask<?>>) seeder.getClass();
+      var type = (Class<? extends SeedTask<?>>) seederType.apply(seeder).asSubclass(SeedTask.class);
       if (type.getName().equals(name) || name.equals(type.getCanonicalName())) {
         return type;
       }

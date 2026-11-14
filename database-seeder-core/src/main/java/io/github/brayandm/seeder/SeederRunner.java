@@ -14,6 +14,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /** Executes explicitly registered seeders. Each call owns its dependency results. */
 public final class SeederRunner {
@@ -31,11 +32,19 @@ public final class SeederRunner {
    * and must return normally.
    */
   public SeederRunner(Collection<? extends SeedTask<?>> seeders, Consumer<SeederEvent> listener) {
+    this(seeders, listener, Object::getClass);
+  }
+
+  /** Registers seeders by their underlying class when a container supplies proxies. */
+  public SeederRunner(
+      Collection<? extends SeedTask<?>> seeders,
+      Consumer<SeederEvent> listener,
+      Function<SeedTask<?>, Class<?>> seederType) {
     this.listener = Objects.requireNonNull(listener);
     for (var seeder : seeders) {
       // getClass() erases the task's result type, which is recovered by SeedContext.get.
       @SuppressWarnings("unchecked")
-      var type = (Class<? extends SeedTask<?>>) seeder.getClass();
+      var type = (Class<? extends SeedTask<?>>) seederType.apply(seeder).asSubclass(SeedTask.class);
       if (tasks.putIfAbsent(type, seeder) != null) {
         throw new IllegalArgumentException("Duplicate seeder: " + type.getName());
       }
