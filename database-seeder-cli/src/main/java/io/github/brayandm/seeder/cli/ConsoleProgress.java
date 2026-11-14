@@ -16,8 +16,8 @@ final class ConsoleProgress implements Consumer<SeederEvent> {
   ConsoleProgress(PrintStream out, Arguments command) {
     this.out = out;
     this.verbose = command.verbose();
-    out.printf("[%s] Starting seeders%n", Instant.now());
     if (verbose) {
+      out.printf("[%s] Starting seeders%n", Instant.now());
       var options = command.options();
       var target = command.seeder() == null ? "all" : command.seeder();
       out.printf(
@@ -28,37 +28,41 @@ final class ConsoleProgress implements Consumer<SeederEvent> {
           options.seed(),
           target,
           command.only());
+      out.flush();
     }
-    out.flush();
   }
 
   @Override
   public synchronized void accept(SeederEvent event) {
     var type = event.seeder();
     var name = verbose || type.getSimpleName().isEmpty() ? type.getName() : type.getSimpleName();
-    var message =
+    var status =
         switch (event.status()) {
           case STARTED -> {
             started++;
-            yield "Started " + name;
+            yield "Started";
           }
           case COMPLETED -> {
             completed++;
-            yield finished("Completed", name, event);
+            yield "Completed";
           }
           case FAILED -> {
             failed++;
-            yield finished("Failed", name, event);
+            yield "Failed";
           }
         };
-    out.printf(
-        "[%s] %s (started=%d, completed=%d, failed=%d)%n",
-        event.timestamp(), message, started, completed, failed);
+    if (verbose) {
+      var message = status + " " + name;
+      if (event.status() != SeederEvent.Status.STARTED) {
+        double milliseconds = event.elapsed().toNanos() / 1_000_000.0;
+        message += String.format(Locale.ROOT, " in %.3f ms", milliseconds);
+      }
+      out.printf(
+          "[%s] %s (started=%d, completed=%d, failed=%d)%n",
+          event.timestamp(), message, started, completed, failed);
+    } else {
+      out.println(status + " " + name);
+    }
     out.flush();
-  }
-
-  private static String finished(String status, String name, SeederEvent event) {
-    double milliseconds = event.elapsed().toNanos() / 1_000_000.0;
-    return String.format(Locale.ROOT, "%s %s in %.3f ms", status, name, milliseconds);
   }
 }

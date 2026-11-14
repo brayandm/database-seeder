@@ -33,8 +33,10 @@ class SeederCliTest {
     var progress = output.toString(StandardCharsets.UTF_8);
     assertTrue(progress.contains("Started Users"));
     assertTrue(progress.indexOf("Completed Users") < progress.indexOf("Started Posts"));
-    assertTrue(progress.contains("Completed Posts in "));
-    assertTrue(progress.contains("started=3, completed=3, failed=0"));
+    assertTrue(progress.lines().anyMatch("Completed Posts"::equals));
+    assertFalse(progress.contains("started="));
+    assertFalse(progress.contains(" ms"));
+    assertFalse(progress.contains("["));
     assertFalse(progress.contains("Run completed"));
   }
 
@@ -121,14 +123,13 @@ class SeederCliTest {
     SeedTask<Void> task =
         context -> {
           var progress = output.toString(StandardCharsets.UTF_8);
-          assertTrue(progress.contains("started=1, completed=0, failed=0"));
+          assertTrue(progress.startsWith("Started "));
           assertFalse(progress.contains("Completed "));
           return null;
         };
 
     assertEquals(0, SeederCli.run(new String[0], List.of(task), buffered, System.err));
-    assertTrue(
-        output.toString(StandardCharsets.UTF_8).contains("started=1, completed=1, failed=0"));
+    assertTrue(output.toString(StandardCharsets.UTF_8).contains("Completed "));
   }
 
   @Test
@@ -136,6 +137,7 @@ class SeederCliTest {
     assertEquals(1, run(List.of(new Broken(), new Blocked()), "--verbose", "--linear"));
 
     var progress = output.toString(StandardCharsets.UTF_8);
+    assertTrue(progress.startsWith("["));
     assertTrue(progress.contains("mode=sequential scale=1.0"));
     assertTrue(progress.contains("Started " + Broken.class.getName()));
     assertTrue(progress.contains("Failed " + Broken.class.getName() + " in "));
