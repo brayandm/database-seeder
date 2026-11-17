@@ -54,6 +54,25 @@ public class SeederDiscoveryTest {
   }
 
   @Test
+  void onlyDoesNotConstructAnUnrelatedSeeder() throws Exception {
+    var classes = getClass().getProtectionDomain().getCodeSource().getLocation();
+    var previous = DiscoveredOrder.rejectConstruction;
+    DiscoveredOrder.rejectConstruction = true;
+    try (var loader = new URLClassLoader(new URL[] {classes}, getClass().getClassLoader())) {
+      assertEquals(
+          0,
+          SeederCli.runFromClasspath(
+              new String[] {"--discover", "--seeder=DiscoveredCustomer", "--only"},
+              loader,
+              new PrintStream(output, false, StandardCharsets.UTF_8),
+              new PrintStream(errors, false, StandardCharsets.UTF_8)));
+    } finally {
+      DiscoveredOrder.rejectConstruction = previous;
+    }
+    assertTrue(output.toString(StandardCharsets.UTF_8).contains("Completed DiscoveredCustomer"));
+  }
+
+  @Test
   void printsHelpWithoutLoadingProviders(@TempDir Path directory) throws Exception {
     register(directory, "missing.Provider");
 
@@ -97,6 +116,14 @@ public class SeederDiscoveryTest {
 
   @Seeder(dependsOn = DiscoveredCustomer.class)
   public static final class DiscoveredOrder implements SeedTask<Void> {
+    static boolean rejectConstruction;
+
+    public DiscoveredOrder() {
+      if (rejectConstruction) {
+        throw new IllegalStateException("Unrelated seeder constructed");
+      }
+    }
+
     @Override
     public Void run(SeedContext context) {
       assertEquals(20L, context.get(DiscoveredCustomer.class));

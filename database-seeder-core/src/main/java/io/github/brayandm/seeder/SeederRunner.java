@@ -4,6 +4,7 @@ import io.github.brayandm.seeder.internal.SeedGraph;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -15,10 +16,11 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /** Executes explicitly registered seeders. Each call owns its dependency results. */
 public final class SeederRunner {
-  private final Map<Class<? extends SeedTask<?>>, SeedTask<?>> tasks = new LinkedHashMap<>();
+  private final Map<Class<? extends SeedTask<?>>, Supplier<? extends SeedTask<?>>> tasks;
   private static final Consumer<SeederEvent> IGNORE_EVENTS = event -> {};
   private final SeedGraph graph;
   private final Consumer<SeederEvent> listener;
@@ -40,16 +42,48 @@ public final class SeederRunner {
       Collection<? extends SeedTask<?>> seeders,
       Consumer<SeederEvent> listener,
       Function<SeedTask<?>, Class<?>> seederType) {
+    this(asFactories(seeders, seederType), listener);
+  }
+
+  /**
+   * Registers factories that are invoked only for seeders reached during a run. Each invocation
+   * calls its registered factory once.
+   */
+  public static SeederRunner withFactories(
+      Map<Class<? extends SeedTask<?>>, Supplier<? extends SeedTask<?>>> factories,
+      Consumer<SeederEvent> listener) {
+    var checked =
+        new LinkedHashMap<Class<? extends SeedTask<?>>, Supplier<? extends SeedTask<?>>>();
+    factories.forEach((type, factory) -> checked.put(type, () -> type.cast(factory.get())));
+    return new SeederRunner(checked, listener);
+  }
+
+  private SeederRunner(
+      Map<Class<? extends SeedTask<?>>, Supplier<? extends SeedTask<?>>> factories,
+      Consumer<SeederEvent> listener) {
+    this.tasks = new LinkedHashMap<>(factories);
     this.listener = Objects.requireNonNull(listener);
+    this.graph = new SeedGraph(tasks.keySet());
+  }
+
+  /** Returns the registered types in registration order. */
+  public Set<Class<? extends SeedTask<?>>> seederTypes() {
+    return Collections.unmodifiableSet(tasks.keySet());
+  }
+
+  private static Map<Class<? extends SeedTask<?>>, Supplier<? extends SeedTask<?>>> asFactories(
+      Collection<? extends SeedTask<?>> seeders, Function<SeedTask<?>, Class<?>> seederType) {
+    var factories =
+        new LinkedHashMap<Class<? extends SeedTask<?>>, Supplier<? extends SeedTask<?>>>();
     for (var seeder : seeders) {
       // getClass() erases the task's result type, which is recovered by SeedContext.get.
       @SuppressWarnings("unchecked")
       var type = (Class<? extends SeedTask<?>>) seederType.apply(seeder).asSubclass(SeedTask.class);
-      if (tasks.putIfAbsent(type, seeder) != null) {
+      if (factories.putIfAbsent(type, () -> seeder) != null) {
         throw new IllegalArgumentException("Duplicate seeder: " + type.getName());
       }
     }
-    graph = new SeedGraph(tasks.keySet());
+    return factories;
   }
 
   public void runAll(SeedOptions options) {
@@ -132,7 +166,7 @@ public final class SeederRunner {
     long started = System.nanoTime();
     var status = SeederEvent.Status.FAILED;
     try {
-      var result = tasks.get(task).run(context);
+      var result = tasks.get(task).get().run(context);
       status = SeederEvent.Status.COMPLETED;
       return result;
     } catch (InterruptedException failure) {

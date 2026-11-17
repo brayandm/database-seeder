@@ -1,6 +1,7 @@
 package io.github.brayandm.seeder.cli;
 
 import io.github.brayandm.seeder.SeedTask;
+import io.github.brayandm.seeder.SeederEvent;
 import io.github.brayandm.seeder.SeederRunner;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -8,6 +9,8 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -56,35 +59,46 @@ public final class SeederCli {
       PrintStream err) {
     return run(
         args,
-        command -> {
-          if (command.discover()) {
-            throw new IllegalArgumentException("--discover requires the standalone CLI");
-          }
-          return seeders;
-        },
-        seederType,
+        (command, progress) -> new SeederRunner(seeders, progress, seederType),
+        false,
         out,
         err);
+  }
+
+  /** Validates seed options before an embedding application starts its runtime. */
+  public static void validateEmbeddedArguments(String[] args) {
+    parse(args, false);
   }
 
   static int runFromClasspath(String[] args, ClassLoader loader, PrintStream out, PrintStream err) {
     return run(
         args,
-        command -> command.discover() ? ClasspathSeeders.discover(loader) : discoverSeeders(loader),
-        Object::getClass,
+        (command, progress) ->
+            command.discover()
+                ? SeederRunner.withFactories(ClasspathSeeders.discover(loader), progress)
+                : new SeederRunner(discoverSeeders(loader), progress),
+        true,
         out,
         err);
   }
 
+  private static Arguments parse(String[] args, boolean standalone) {
+    var command = Arguments.parse(args);
+    if (command.discover() && !standalone) {
+      throw new IllegalArgumentException("--discover requires the standalone CLI");
+    }
+    return command;
+  }
+
   private static int run(
       String[] args,
-      Function<Arguments, Collection<? extends SeedTask<?>>> source,
-      Function<SeedTask<?>, Class<?>> seederType,
+      BiFunction<Arguments, Consumer<SeederEvent>, SeederRunner> source,
+      boolean standalone,
       PrintStream out,
       PrintStream err) {
     Arguments command;
     try {
-      command = Arguments.parse(args);
+      command = parse(args, standalone);
     } catch (IllegalArgumentException failure) {
       return usageError(failure, err);
     }
@@ -95,15 +109,14 @@ public final class SeederCli {
     }
 
     try {
-      var seeders = source.apply(command);
+      var runner = source.apply(command, new ConsoleProgress(out, command));
       Class<? extends SeedTask<?>> target;
       try {
-        target = command.seeder() == null ? null : resolve(command.seeder(), seeders, seederType);
+        target = command.seeder() == null ? null : resolve(command.seeder(), runner.seederTypes());
       } catch (IllegalArgumentException failure) {
         return usageError(failure, err);
       }
 
-      var runner = new SeederRunner(seeders, new ConsoleProgress(out, command), seederType);
       if (target == null) {
         runner.runAll(command.options());
       } else if (command.only()) {
@@ -142,14 +155,9 @@ public final class SeederCli {
   }
 
   private static Class<? extends SeedTask<?>> resolve(
-      String name,
-      Collection<? extends SeedTask<?>> seeders,
-      Function<SeedTask<?>, Class<?>> seederType) {
+      String name, Collection<Class<? extends SeedTask<?>>> types) {
     var matches = new LinkedHashSet<Class<? extends SeedTask<?>>>();
-    for (var seeder : seeders) {
-      // A SeedTask instance guarantees that its runtime class implements SeedTask.
-      @SuppressWarnings("unchecked")
-      var type = (Class<? extends SeedTask<?>>) seederType.apply(seeder).asSubclass(SeedTask.class);
+    for (var type : types) {
       if (type.getName().equals(name) || name.equals(type.getCanonicalName())) {
         return type;
       }

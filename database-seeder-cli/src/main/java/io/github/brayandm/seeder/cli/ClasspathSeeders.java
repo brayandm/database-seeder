@@ -4,24 +4,27 @@ import io.github.brayandm.seeder.SeedTask;
 import io.github.brayandm.seeder.Seeder;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
 import java.net.URISyntaxException;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.Supplier;
 import java.util.jar.JarFile;
 import java.util.regex.Pattern;
 
 final class ClasspathSeeders {
   private ClasspathSeeders() {}
 
-  static Collection<SeedTask<?>> discover(ClassLoader loader) {
+  static Map<Class<? extends SeedTask<?>>, Supplier<? extends SeedTask<?>>> discover(
+      ClassLoader loader) {
     var names = new TreeSet<String>();
     try {
       for (var entry : entries(loader)) {
@@ -42,7 +45,8 @@ final class ClasspathSeeders {
       throw new IllegalStateException("Unable to scan the runtime classpath", failure);
     }
 
-    var seeders = new ArrayList<SeedTask<?>>();
+    var seeders =
+        new LinkedHashMap<Class<? extends SeedTask<?>>, Supplier<? extends SeedTask<?>>>();
     for (var name : names) {
       var type = loadClass(name, loader);
       if (type == null
@@ -53,11 +57,13 @@ final class ClasspathSeeders {
         continue;
       }
       try {
-        seeders.add((SeedTask<?>) type.getConstructor().newInstance());
+        // The assignability check above verifies the erased SeedTask type.
+        @SuppressWarnings("unchecked")
+        var taskType = (Class<? extends SeedTask<?>>) type;
+        var constructor = taskType.getConstructor();
+        seeders.put(taskType, () -> instantiate(constructor));
       } catch (NoSuchMethodException ignored) {
         // This seeder must be constructed by the application or a dependency injection container.
-      } catch (ReflectiveOperationException failure) {
-        throw new IllegalStateException("Unable to instantiate seeder: " + name, failure);
       }
     }
     if (seeders.isEmpty()) {
@@ -65,6 +71,15 @@ final class ClasspathSeeders {
           "No public @Seeder classes implementing SeedTask with a public no-argument constructor found");
     }
     return seeders;
+  }
+
+  private static SeedTask<?> instantiate(Constructor<? extends SeedTask<?>> constructor) {
+    try {
+      return constructor.newInstance();
+    } catch (ReflectiveOperationException failure) {
+      throw new IllegalStateException(
+          "Unable to instantiate seeder: " + constructor.getDeclaringClass().getName(), failure);
+    }
   }
 
   private static Set<Path> entries(ClassLoader loader) throws URISyntaxException {
