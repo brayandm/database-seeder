@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -63,14 +64,23 @@ class SeederRunnerTest {
   void runsIndependentTasksConcurrentlyAndPropagatesFailures() {
     var started = new CountDownLatch(2);
     var dependent = new MustNotRun();
+    var independentCompleted = new AtomicBoolean();
     var runner =
-        new SeederRunner(List.of(dependent, new Failing(started), new Independent(started)));
+        new SeederRunner(
+            List.of(dependent, new Failing(started), new Independent(started)),
+            event -> {
+              if (event.seeder() == Independent.class
+                  && event.status() == SeederEvent.Status.COMPLETED) {
+                independentCompleted.set(true);
+              }
+            });
 
     var failure =
         assertThrows(IllegalStateException.class, () -> runner.runAll(SeedOptions.DEFAULT));
 
     assertEquals("intentional failure", failure.getCause().getMessage());
     assertFalse(dependent.ran);
+    assertTrue(independentCompleted.get());
   }
 
   @Test
