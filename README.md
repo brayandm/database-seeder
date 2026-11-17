@@ -180,4 +180,52 @@ If your application uses an installed Maven distribution, replace `./mvnw` with 
 
 By default, the CLI prints a live start and completion or failure line for each seeder. Any output written directly by your seeders also goes to the console.
 
-For seeders that need constructor arguments, use a `SeederProvider` registered through Java's `ServiceLoader`, or pass initialized instances to `SeederCli.run(args, seeders)` from your own integration. Launch the standalone CLI without `--discover` to use registered providers. The Spring Boot starter is planned.
+For seeders that need constructor arguments, use a `SeederProvider` registered through Java's `ServiceLoader`, or pass initialized instances to `SeederCli.run(args, seeders)` from your own integration. Launch the standalone CLI without `--discover` to use registered providers.
+
+## Run with Spring Boot
+
+Use `io.github.brayandm:database-seeder-spring-boot-starter:0.1.0-SNAPSHOT` in
+place of the CLI dependency. The starter was tested with Spring Boot 4.2.0 and Java 21.
+It discovers concrete `@Seeder` classes implementing `SeedTask<R>` in the
+application's Spring Boot auto-configuration packages and registers them as beans.
+Spring can inject repositories or services through a seeder's constructor.
+
+```java
+@Seeder(dependsOn = CustomerSeeder.class)
+public class OrderSeeder implements SeedTask<Void> {
+    private final OrderRepository repository;
+
+    public OrderSeeder(OrderRepository repository) {
+        this.repository = repository;
+    }
+
+    @Override
+    public Void run(SeedContext context) {
+        repository.createOrdersFor(context.get(CustomerSeeder.class));
+        return null;
+    }
+}
+```
+
+For Gradle, use the same `seed` task shown above with
+`io.github.brayandm.seeder.spring.SpringSeederCli` as the main class. Replace
+`--discover` in the argument provider with `--application=com.example.MyApplication`,
+using the fully qualified name of your Spring Boot configuration class. Then run:
+
+```sh
+./gradlew seed --args="--seeder=OrderSeeder --scale=2"
+```
+
+For Maven, install the starter JAR locally using the same snapshot steps as for
+the core and CLI, and add it as a third dependency. In the named execution,
+replace the CLI main class and `--discover` with these arguments:
+
+```xml
+<argument>io.github.brayandm.seeder.spring.SpringSeederCli</argument>
+<argument>--application=com.example.MyApplication</argument>
+```
+
+The command starts a Spring application context in console mode and closes it
+when the CLI returns. Regular application startup registers the seeders and
+exposes a `SeederRunner` bean for programmatic use. Execution starts when you
+invoke the CLI or call the runner.
