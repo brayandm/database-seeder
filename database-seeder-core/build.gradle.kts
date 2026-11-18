@@ -4,8 +4,6 @@ plugins {
     id("com.diffplug.spotless") version "8.4.0"
 }
 
-group = "io.github.brayandm"
-version = "0.1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
