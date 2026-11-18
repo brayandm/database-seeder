@@ -14,20 +14,21 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ClassPathBeanDefinitionScanner;
 import org.springframework.context.annotation.FullyQualifiedAnnotationBeanNameGenerator;
+import org.springframework.core.env.Environment;
 import org.springframework.core.type.filter.AnnotationTypeFilter;
 import org.springframework.core.type.filter.AssignableTypeFilter;
 
 @AutoConfiguration
 public class SeederAutoConfiguration {
   @Bean
-  static BeanDefinitionRegistryPostProcessor seederRegistration() {
+  static BeanDefinitionRegistryPostProcessor seederRegistration(Environment environment) {
     return registry -> {
       if (!(registry instanceof BeanFactory factory) || !AutoConfigurationPackages.has(factory)) {
         return;
       }
 
       var scanner =
-          new ClassPathBeanDefinitionScanner(registry, false) {
+          new ClassPathBeanDefinitionScanner(registry, false, environment) {
             @Override
             protected boolean checkCandidate(String beanName, BeanDefinition candidate) {
               for (var registeredName : registry.getBeanDefinitionNames()) {

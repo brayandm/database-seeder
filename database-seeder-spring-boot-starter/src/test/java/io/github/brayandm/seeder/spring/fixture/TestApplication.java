@@ -8,6 +8,7 @@ import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Profile;
 
 @SpringBootConfiguration
 @EnableAutoConfiguration
@@ -25,6 +26,15 @@ public class TestApplication {
         return bean instanceof Customers ? new ProxyFactory(bean).getProxy() : bean;
       }
     };
+  }
+
+  @Seeder
+  @Profile("seed-test")
+  public static class ProfileSeeder implements SeedTask<Void> {
+    @Override
+    public Void run(SeedContext context) {
+      return null;
+    }
   }
 
   public static final class Repository {

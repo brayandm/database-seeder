@@ -7,8 +7,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.springframework.aop.framework.AopProxyUtils;
+import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.core.annotation.AnnotatedElementUtils;
 
 /** Launches the consumer's Spring configuration for a single console seeding session. */
 public final class SpringSeederCli {
@@ -48,9 +50,23 @@ public final class SpringSeederCli {
       return 2;
     }
 
+    var options = seederArgs.toArray(String[]::new);
+    try {
+      SeederCli.validateEmbeddedArguments(options);
+    } catch (IllegalArgumentException failure) {
+      err.println(failure.getMessage());
+      err.println("Use --help for usage.");
+      err.flush();
+      return 2;
+    }
+
     try {
       var configuration =
           Class.forName(application, false, Thread.currentThread().getContextClassLoader());
+      if (!AnnotatedElementUtils.hasAnnotation(configuration, SpringBootConfiguration.class)) {
+        err.println("Expected a Spring Boot configuration class: " + application);
+        return 2;
+      }
       try (var context =
           new SpringApplicationBuilder(configuration)
               .web(WebApplicationType.NONE)
@@ -59,12 +75,11 @@ public final class SpringSeederCli {
             context.getBeansOfType(SeedTask.class).values().stream()
                 .<SeedTask<?>>map(task -> task)
                 .toList();
-        return SeederCli.run(
-            seederArgs.toArray(String[]::new),
-            seeders,
-            AopProxyUtils::ultimateTargetClass,
-            out,
-            err);
+        if (seeders.isEmpty()) {
+          err.println("No SeedTask beans found in " + application);
+          return 1;
+        }
+        return SeederCli.run(options, seeders, AopProxyUtils::ultimateTargetClass, out, err);
       }
     } catch (ClassNotFoundException failure) {
       err.println("Application class not found: " + application);
