@@ -15,10 +15,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/** Resolves dependency order for the runner. This is an internal implementation type. */
 public final class SeedGraph {
   private final Map<Class<? extends SeedTask<?>>, List<Class<? extends SeedTask<?>>>> edges =
       new LinkedHashMap<>();
 
+  /**
+   * Reads dependency metadata for the registered classes.
+   *
+   * @param tasks the registered seeder types
+   */
   public SeedGraph(Collection<Class<? extends SeedTask<?>>> tasks) {
     for (var task : tasks) {
       var annotation = task.getAnnotation(Seeder.class);
@@ -26,14 +32,33 @@ public final class SeedGraph {
     }
   }
 
+  /**
+   * Reads a registered task's direct dependencies.
+   *
+   * @param task the registered seeder type
+   * @return unique dependencies in declaration order
+   */
   public List<Class<? extends SeedTask<?>>> dependencies(Class<? extends SeedTask<?>> task) {
     return edges.get(task).stream().distinct().toList();
   }
 
+  /**
+   * Orders all registered tasks.
+   *
+   * @return the tasks in dependency order
+   * @throws IllegalArgumentException if a dependency is missing or a cycle is found
+   */
   public List<Class<? extends SeedTask<?>>> order() {
     return order(edges.keySet());
   }
 
+  /**
+   * Orders the selected tasks and their transitive dependencies.
+   *
+   * @param targets the registered types to start from
+   * @return the reachable tasks in dependency order
+   * @throws IllegalArgumentException if a target or dependency is missing, or a cycle is found
+   */
   public List<Class<? extends SeedTask<?>>> order(
       Collection<Class<? extends SeedTask<?>>> targets) {
     var order = new ArrayList<Class<? extends SeedTask<?>>>();

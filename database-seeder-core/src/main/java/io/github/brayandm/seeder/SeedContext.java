@@ -23,6 +23,15 @@ public final class SeedContext {
     this.random = new SplittableRandom(options.seed() ^ task.getName().hashCode());
   }
 
+  /**
+   * Reads the result of a declared direct dependency from this run.
+   *
+   * @param <R> the result type of the dependency
+   * @param dependency the class that produced the result
+   * @return the dependency result, which may be null
+   * @throws IllegalArgumentException if the dependency was not declared
+   * @throws IllegalStateException if the dependency has no result in this run
+   */
   public <R> R get(Class<? extends SeedTask<R>> dependency) {
     if (!dependencies.contains(dependency)) {
       throw new IllegalArgumentException("Undeclared dependency: " + dependency.getName());
@@ -37,15 +46,30 @@ public final class SeedContext {
     return result;
   }
 
+  /**
+   * Returns the multiplier configured for this run.
+   *
+   * @return the scale factor
+   */
   public double scale() {
     return scale;
   }
 
+  /**
+   * Applies the scale factor and rounds with {@link Math#round(double)}.
+   *
+   * @param count the unscaled count
+   * @return the scaled and rounded count
+   */
   public long scaled(long count) {
     return Math.round(count * scale);
   }
 
-  /** Returns the reproducible random stream owned by this seeder invocation. */
+  /**
+   * Provides deterministic random values for this seeder invocation.
+   *
+   * @return the random generator owned by this invocation
+   */
   public RandomGenerator random() {
     return random;
   }

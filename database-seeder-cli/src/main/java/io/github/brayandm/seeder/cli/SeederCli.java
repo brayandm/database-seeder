@@ -32,25 +32,52 @@ public final class SeederCli {
 
   private SeederCli() {}
 
-  /** Runs the standalone CLI with providers discovered on the runtime classpath. */
+  /**
+   * Runs the standalone CLI with classpath discovery or registered providers.
+   *
+   * @param args command-line options
+   */
   public static void main(String[] args) {
     System.exit(
         runFromClasspath(
             args, Thread.currentThread().getContextClassLoader(), System.out, System.err));
   }
 
-  /** Returns 0 for success, 1 for execution errors, or 2 for invalid arguments. */
+  /**
+   * Runs registered seeders using standard output and standard error.
+   *
+   * @param args command-line options
+   * @param seeders initialized seeder instances
+   * @return 0 for success, 1 for execution failures, or 2 for invalid arguments
+   */
   public static int run(String[] args, Collection<? extends SeedTask<?>> seeders) {
     return run(args, seeders, System.out, System.err);
   }
 
-  /** Runs the CLI using caller-provided output streams. */
+  /**
+   * Runs registered seeders using caller-provided output streams.
+   *
+   * @param args command-line options
+   * @param seeders initialized seeder instances
+   * @param out stream for help and progress
+   * @param err stream for diagnostics
+   * @return 0 for success, 1 for execution failures, or 2 for invalid arguments
+   */
   public static int run(
       String[] args, Collection<? extends SeedTask<?>> seeders, PrintStream out, PrintStream err) {
     return run(args, seeders, Object::getClass, out, err);
   }
 
-  /** Uses the underlying seeder classes when the caller supplies proxy instances. */
+  /**
+   * Runs registered seeders identified by their underlying classes.
+   *
+   * @param args command-line options
+   * @param seeders initialized seeder instances, which may be proxies
+   * @param seederType function resolving the seeder class used for selection and dependencies
+   * @param out stream for help and progress
+   * @param err stream for diagnostics
+   * @return 0 for success, 1 for execution failures, or 2 for invalid arguments
+   */
   public static int run(
       String[] args,
       Collection<? extends SeedTask<?>> seeders,
@@ -65,7 +92,12 @@ public final class SeederCli {
         err);
   }
 
-  /** Validates seed options before an embedding application starts its runtime. */
+  /**
+   * Validates seed options before an embedding application starts its runtime.
+   *
+   * @param args command-line options for explicitly registered seeders
+   * @throws IllegalArgumentException if an option is invalid or requires standalone discovery
+   */
   public static void validateEmbeddedArguments(String[] args) {
     parse(args, false);
   }

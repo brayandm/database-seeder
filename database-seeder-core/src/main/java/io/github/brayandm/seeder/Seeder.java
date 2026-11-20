@@ -9,5 +9,10 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 public @interface Seeder {
+  /**
+   * Identifies the seeders that must complete before this one.
+   *
+   * @return the declared direct dependencies
+   */
   Class<? extends SeedTask<?>>[] dependsOn() default {};
 }

@@ -25,6 +25,11 @@ public final class SeederRunner {
   private final SeedGraph graph;
   private final Consumer<SeederEvent> listener;
 
+  /**
+   * Creates a runner for initialized seeders.
+   *
+   * @param seeders the instances to reuse across runs
+   */
   public SeederRunner(Collection<? extends SeedTask<?>> seeders) {
     this(seeders, IGNORE_EVENTS);
   }
@@ -32,12 +37,21 @@ public final class SeederRunner {
   /**
    * Reports progress on the executing threads. The listener must be thread-safe in parallel mode
    * and must return normally.
+   *
+   * @param seeders the instances to reuse across runs
+   * @param listener consumer for progress events
    */
   public SeederRunner(Collection<? extends SeedTask<?>> seeders, Consumer<SeederEvent> listener) {
     this(seeders, listener, Object::getClass);
   }
 
-  /** Registers seeders by their underlying class when a container supplies proxies. */
+  /**
+   * Registers seeders by their underlying class when a container supplies proxies.
+   *
+   * @param seeders the initialized instances to invoke
+   * @param listener a thread-safe consumer for progress events in parallel mode
+   * @param seederType function resolving the class used for dependency metadata
+   */
   public SeederRunner(
       Collection<? extends SeedTask<?>> seeders,
       Consumer<SeederEvent> listener,
@@ -48,6 +62,10 @@ public final class SeederRunner {
   /**
    * Registers factories that are invoked only for seeders reached during a run. Each invocation
    * calls its registered factory once.
+   *
+   * @param factories suppliers keyed by their seeder class, in registration order
+   * @param listener a thread-safe consumer for progress events in parallel mode
+   * @return the configured runner
    */
   public static SeederRunner withFactories(
       Map<Class<? extends SeedTask<?>>, Supplier<? extends SeedTask<?>>> factories,
@@ -66,7 +84,11 @@ public final class SeederRunner {
     this.graph = new SeedGraph(tasks.keySet());
   }
 
-  /** Returns the registered types in registration order. */
+  /**
+   * Lists the seeder classes available for selection.
+   *
+   * @return an unmodifiable set in registration order
+   */
   public Set<Class<? extends SeedTask<?>>> seederTypes() {
     return Collections.unmodifiableSet(tasks.keySet());
   }
@@ -86,16 +108,32 @@ public final class SeederRunner {
     return factories;
   }
 
+  /**
+   * Runs all registered seeders in dependency order.
+   *
+   * @param options settings for this run
+   */
   public void runAll(SeedOptions options) {
     execute(graph.order(), options);
   }
 
+  /**
+   * Runs a target and its transitive dependencies.
+   *
+   * @param target the registered seeder to select
+   * @param options settings for this run
+   */
   public void run(Class<? extends SeedTask<?>> target, SeedOptions options) {
     requireRegistered(target);
     execute(graph.order(List.of(target)), options);
   }
 
-  /** Runs one seeder with an empty result context. */
+  /**
+   * Runs one seeder with an empty result context.
+   *
+   * @param target the registered seeder to select
+   * @param options settings for this run
+   */
   public void runOnly(Class<? extends SeedTask<?>> target, SeedOptions options) {
     requireRegistered(target);
     invoke(target, Map.of(), options);

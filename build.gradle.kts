@@ -2,6 +2,7 @@ import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.plugins.signing.SigningExtension
+import org.gradle.external.javadoc.StandardJavadocDocletOptions
 
 val publicationVersion = providers.gradleProperty("releaseVersion").orElse("0.1.0-SNAPSHOT")
 val signingKey = providers.environmentVariable("DATABASE_SEEDER_SIGNING_KEY")
@@ -17,6 +18,14 @@ subprojects {
         extensions.configure<JavaPluginExtension> {
             withSourcesJar()
             withJavadocJar()
+        }
+
+        tasks.named<Javadoc>("javadoc") {
+            (options as StandardJavadocDocletOptions).addBooleanOption("Werror", true)
+        }
+
+        tasks.named("check") {
+            dependsOn(tasks.named("javadoc"))
         }
 
         tasks.named<Jar>("jar") {

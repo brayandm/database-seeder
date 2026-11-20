@@ -18,8 +18,12 @@ import org.springframework.core.env.Environment;
 import org.springframework.core.type.filter.AnnotationTypeFilter;
 import org.springframework.core.type.filter.AssignableTypeFilter;
 
+/** Registers annotated seeders and provides a runner for Spring Boot applications. */
 @AutoConfiguration
 public class SeederAutoConfiguration {
+  /** Creates the auto-configuration instance for Spring Boot. */
+  public SeederAutoConfiguration() {}
+
   @Bean
   static BeanDefinitionRegistryPostProcessor seederRegistration(Environment environment) {
     return registry -> {

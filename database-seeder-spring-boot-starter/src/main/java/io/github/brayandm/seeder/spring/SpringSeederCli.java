@@ -18,6 +18,11 @@ public final class SpringSeederCli {
 
   private SpringSeederCli() {}
 
+  /**
+   * Starts a console Spring context and runs the requested seeders.
+   *
+   * @param args application and seeder command-line options
+   */
   public static void main(String[] args) {
     System.exit(run(args, System.out, System.err));
   }

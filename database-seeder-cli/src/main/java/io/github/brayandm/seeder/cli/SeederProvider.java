@@ -9,5 +9,10 @@ import java.util.Collection;
  * META-INF/services/io.github.brayandm.seeder.cli.SeederProvider}.
  */
 public interface SeederProvider {
+  /**
+   * Supplies seeders to the standalone CLI.
+   *
+   * @return initialized tasks with their dependencies ready to use
+   */
   Collection<? extends SeedTask<?>> seeders();
 }
