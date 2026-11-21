@@ -73,6 +73,38 @@ class SpringSeederCliTest {
   }
 
   @Test
+  void givesExplicitFactoryBeansPriorityOverDiscoveredSeeders() {
+    try (var context =
+        new SpringApplicationBuilder(TestApplication.class)
+            .web(WebApplicationType.NONE)
+            .profiles("explicit-seeder")
+            .run()) {
+      var repository = context.getBean(Repository.class);
+      context.getBean(SeederRunner.class).run(Orders.class, new SeedOptions(false, 2, 0));
+      assertEquals(6, repository.orders());
+      assertEquals(1, repository.customerInstances());
+    }
+
+    assertEquals(
+        0,
+        run(
+            "--application=" + TestApplication.class.getName(),
+            "--spring.profiles.active=explicit-seeder",
+            "--seeder=Orders"));
+  }
+
+  @Test
+  void keepsConsoleModeDespiteApplicationArguments() {
+    assertEquals(
+        0,
+        run(
+            "--application=" + TestApplication.class.getName(),
+            "--spring.profiles.active=console-test",
+            "--spring.main.web-application-type=servlet",
+            "--seeder=Orders"));
+  }
+
+  @Test
   void runsTransactionalSeederWithRealJpaRepository() {
     assertEquals(
         0,

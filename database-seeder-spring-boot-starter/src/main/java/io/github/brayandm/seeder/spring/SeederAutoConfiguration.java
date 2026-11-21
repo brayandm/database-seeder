@@ -3,10 +3,12 @@ package io.github.brayandm.seeder.spring;
 import io.github.brayandm.seeder.SeedTask;
 import io.github.brayandm.seeder.Seeder;
 import io.github.brayandm.seeder.SeederRunner;
-import java.util.List;
 import org.springframework.aop.framework.AopProxyUtils;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.beans.factory.config.BeanDefinitionHolder;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigurationPackages;
@@ -34,6 +36,15 @@ public class SeederAutoConfiguration {
       var scanner =
           new ClassPathBeanDefinitionScanner(registry, false, environment) {
             @Override
+            protected void registerBeanDefinition(
+                BeanDefinitionHolder holder, BeanDefinitionRegistry registry) {
+              var definition = holder.getBeanDefinition();
+              definition.setAttribute(SpringSeeders.DISCOVERED, true);
+              definition.setLazyInit(true);
+              super.registerBeanDefinition(holder, registry);
+            }
+
+            @Override
             protected boolean checkCandidate(String beanName, BeanDefinition candidate) {
               for (var registeredName : registry.getBeanDefinitionNames()) {
                 if (beanName.equals(registeredName)) {
@@ -60,7 +71,8 @@ public class SeederAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean
-  SeederRunner seederRunner(List<SeedTask<?>> seeders) {
-    return new SeederRunner(seeders, event -> {}, AopProxyUtils::ultimateTargetClass);
+  SeederRunner seederRunner(ConfigurableListableBeanFactory beans) {
+    return new SeederRunner(
+        SpringSeeders.collect(beans), event -> {}, AopProxyUtils::ultimateTargetClass);
   }
 }

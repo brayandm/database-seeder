@@ -5,10 +5,12 @@ import io.github.brayandm.seeder.SeedTask;
 import io.github.brayandm.seeder.Seeder;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.beans.factory.config.BeanPostProcessor;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.env.Environment;
 
 @SpringBootConfiguration
 @EnableAutoConfiguration
@@ -28,6 +30,22 @@ public class TestApplication {
     };
   }
 
+  @Bean
+  @Profile("explicit-seeder")
+  SeedTask<Long> explicitCustomers(Repository repository) {
+    return new Customers(repository);
+  }
+
+  @Bean
+  @Profile("console-test")
+  ApplicationRunner checkConsoleMode(Environment environment) {
+    return args -> {
+      if (!"none".equals(environment.getProperty("spring.main.web-application-type"))) {
+        throw new IllegalStateException("Expected console mode");
+      }
+    };
+  }
+
   @Seeder
   @Profile("seed-test")
   public static class ProfileSeeder implements SeedTask<Void> {
@@ -39,6 +57,11 @@ public class TestApplication {
 
   public static final class Repository {
     private int orders;
+    private int customerInstances;
+
+    public int customerInstances() {
+      return customerInstances;
+    }
 
     public int orders() {
       return orders;
@@ -51,6 +74,7 @@ public class TestApplication {
 
     public Customers(Repository repository) {
       this.repository = repository;
+      repository.customerInstances++;
     }
 
     @Override

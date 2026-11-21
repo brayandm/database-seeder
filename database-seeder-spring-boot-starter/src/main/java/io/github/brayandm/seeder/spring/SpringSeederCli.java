@@ -1,16 +1,20 @@
 package io.github.brayandm.seeder.spring;
 
-import io.github.brayandm.seeder.SeedTask;
 import io.github.brayandm.seeder.cli.SeederCli;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import org.springframework.aop.framework.AopProxyUtils;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.core.env.MapPropertySource;
+import org.springframework.core.env.SimpleCommandLinePropertySource;
+import org.springframework.core.env.StandardEnvironment;
 
 /** Launches the consumer's Spring configuration for a single console seeding session. */
 public final class SpringSeederCli {
@@ -72,14 +76,8 @@ public final class SpringSeederCli {
         err.println("Expected a Spring Boot configuration class: " + application);
         return 2;
       }
-      try (var context =
-          new SpringApplicationBuilder(configuration)
-              .web(WebApplicationType.NONE)
-              .run(springArgs.toArray(String[]::new))) {
-        List<SeedTask<?>> seeders =
-            context.getBeansOfType(SeedTask.class).values().stream()
-                .<SeedTask<?>>map(task -> task)
-                .toList();
+      try (var context = consoleApplication(configuration, springArgs)) {
+        var seeders = SpringSeeders.collect(context.getBeanFactory());
         if (seeders.isEmpty()) {
           err.println("No SeedTask beans found in " + application);
           return 1;
@@ -93,5 +91,28 @@ public final class SpringSeederCli {
       failure.printStackTrace(err);
       return 1;
     }
+  }
+
+  private static ConfigurableApplicationContext consoleApplication(
+      Class<?> configuration, List<String> springArgs) {
+    var args = springArgs.toArray(String[]::new);
+    var environment = new StandardEnvironment();
+    if (args.length > 0) {
+      environment.getPropertySources().addFirst(new SimpleCommandLinePropertySource(args));
+    }
+    environment
+        .getPropertySources()
+        .addFirst(
+            new MapPropertySource(
+                "databaseSeederConsole", Map.of("spring.main.web-application-type", "none")));
+
+    var application =
+        new SpringApplicationBuilder(configuration)
+            .environment(environment)
+            .web(WebApplicationType.NONE)
+            .build();
+    // The command-line properties are already present below the console override.
+    application.setAddCommandLineProperties(false);
+    return application.run(args);
   }
 }
