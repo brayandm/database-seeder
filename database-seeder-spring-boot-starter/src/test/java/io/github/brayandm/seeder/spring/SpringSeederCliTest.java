@@ -6,12 +6,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.github.brayandm.seeder.SeedOptions;
 import io.github.brayandm.seeder.SeederRunner;
 import io.github.brayandm.seeder.spring.fixture.TestApplication;
+import io.github.brayandm.seeder.spring.fixture.TestApplication.Customers;
 import io.github.brayandm.seeder.spring.fixture.TestApplication.Orders;
 import io.github.brayandm.seeder.spring.fixture.TestApplication.Repository;
 import io.github.brayandm.seeder.spring.jpa.JpaTestApplication;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.ApplicationRunner;
@@ -48,6 +50,21 @@ class SpringSeederCliTest {
 
     assertEquals(0, status, () -> errors.toString(StandardCharsets.UTF_8));
     assertTrue(output.toString(StandardCharsets.UTF_8).contains("Completed Orders"));
+  }
+
+  @Test
+  void listsSpringSeedersByClassWithoutExecutingThem() {
+    var output = new ByteArrayOutputStream();
+    var status =
+        SpringSeederCli.run(
+            new String[] {"--application=" + TestApplication.class.getName(), "--list"},
+            new PrintStream(output, false, StandardCharsets.UTF_8),
+            System.err);
+
+    assertEquals(0, status);
+    assertEquals(
+        List.of(Customers.class.getCanonicalName(), Orders.class.getCanonicalName()),
+        output.toString(StandardCharsets.UTF_8).lines().toList());
   }
 
   @Test

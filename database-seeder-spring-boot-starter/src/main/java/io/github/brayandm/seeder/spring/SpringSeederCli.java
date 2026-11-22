@@ -78,7 +78,7 @@ public final class SpringSeederCli {
       }
       try (var context = consoleApplication(configuration, springArgs)) {
         var seeders = SpringSeeders.collect(context.getBeanFactory());
-        if (seeders.isEmpty()) {
+        if (seeders.isEmpty() && !seederArgs.contains("--list")) {
           err.println("No SeedTask beans found in " + application);
           return 1;
         }

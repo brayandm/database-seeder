@@ -30,6 +30,16 @@ public class SeederDiscoveryTest {
   }
 
   @Test
+  void listsRegisteredProviderSeeders(@TempDir Path directory) throws Exception {
+    register(directory, Provider.class.getName());
+
+    assertEquals(0, run(directory, "--list"));
+    assertEquals(
+        List.of(CustomerSeeder.class.getCanonicalName()),
+        output.toString(StandardCharsets.UTF_8).lines().toList());
+  }
+
+  @Test
   void reportsMissingProviders(@TempDir Path directory) throws Exception {
     assertEquals(1, run(directory));
     assertTrue(errors.toString(StandardCharsets.UTF_8).contains("No SeederProvider found"));
@@ -70,6 +80,27 @@ public class SeederDiscoveryTest {
       DiscoveredOrder.rejectConstruction = previous;
     }
     assertTrue(output.toString(StandardCharsets.UTF_8).contains("Completed DiscoveredCustomer"));
+  }
+
+  @Test
+  void listsDiscoveredClassesEvenWhenAConstructorWouldFail() throws Exception {
+    var classes = getClass().getProtectionDomain().getCodeSource().getLocation();
+    DiscoveredOrder.rejectConstruction = true;
+    try (var loader = new URLClassLoader(new URL[] {classes}, getClass().getClassLoader())) {
+      assertEquals(
+          0,
+          SeederCli.runFromClasspath(
+              new String[] {"--discover", "--list"},
+              loader,
+              new PrintStream(output, false, StandardCharsets.UTF_8),
+              new PrintStream(errors, false, StandardCharsets.UTF_8)));
+    } finally {
+      DiscoveredOrder.rejectConstruction = false;
+    }
+    assertEquals(
+        List.of(
+            DiscoveredCustomer.class.getCanonicalName(), DiscoveredOrder.class.getCanonicalName()),
+        output.toString(StandardCharsets.UTF_8).lines().toList());
   }
 
   @Test

@@ -7,6 +7,7 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.Objects;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 import java.util.function.BiFunction;
@@ -18,7 +19,7 @@ import java.util.stream.Collectors;
 public final class SeederCli {
   private static final String HELP =
       """
-      Usage: [--seeder=<class>] [--only] [--linear] [--scale=<number>] [--verbose] [--discover] [--help]
+      Usage: [--seeder=<class>] [--only] [--linear] [--scale=<number>] [--verbose] [--discover] [--list] [--help]
 
         --seeder  Run the named seeder and its dependencies. Accepts a fully
                   qualified class name or an unambiguous simple name.
@@ -27,6 +28,7 @@ public final class SeederCli {
         --scale   Set a finite positive scale. Defaults to 1.
         --verbose Show timestamps, durations, counters, full names and execution settings.
         --discover Discover annotated seeders with public no-argument constructors.
+        --list    Print available seeder class names without running them.
         --help    Show this help.
       """;
 
@@ -141,7 +143,16 @@ public final class SeederCli {
     }
 
     try {
-      var runner = source.apply(command, new ConsoleProgress(out, command));
+      var runner =
+          source.apply(command, command.list() ? event -> {} : new ConsoleProgress(out, command));
+      if (command.list()) {
+        runner.seederTypes().stream()
+            .map(type -> Objects.requireNonNullElse(type.getCanonicalName(), type.getName()))
+            .sorted()
+            .forEach(out::println);
+        out.flush();
+        return 0;
+      }
       Class<? extends SeedTask<?>> target;
       try {
         target = command.seeder() == null ? null : resolve(command.seeder(), runner.seederTypes());

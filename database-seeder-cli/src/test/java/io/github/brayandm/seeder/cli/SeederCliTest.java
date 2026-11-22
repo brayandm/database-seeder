@@ -102,6 +102,26 @@ class SeederCliTest {
   }
 
   @Test
+  void listsFullNamesInOrderWithoutRunningSeeders() {
+    var billing = new Billing.Users();
+    var support = new Support.Users();
+
+    assertEquals(0, run(List.of(support, billing), "--list", "--verbose"));
+    assertEquals(
+        List.of(Billing.Users.class.getCanonicalName(), Support.Users.class.getCanonicalName()),
+        output.toString(StandardCharsets.UTF_8).lines().toList());
+    assertFalse(billing.ran);
+    assertFalse(support.ran);
+  }
+
+  @Test
+  void rejectsSelectionFlagsWhenListing() {
+    assertEquals(2, run(List.of(new Other()), "--list", "--seeder=Other"));
+    assertEquals(2, run(List.of(new Other()), "--list", "--only"));
+    assertTrue(errors.toString(StandardCharsets.UTF_8).contains("--list cannot be combined"));
+  }
+
+  @Test
   void helpPrintsUsageWithoutRunningSeeders() {
     var other = new Other();
 

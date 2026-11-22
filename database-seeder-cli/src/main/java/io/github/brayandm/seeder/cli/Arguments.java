@@ -9,6 +9,7 @@ record Arguments(
     boolean help,
     boolean verbose,
     boolean discover,
+    boolean list,
     SeedOptions options) {
   static Arguments parse(String[] args) {
     var seen = new HashSet<String>();
@@ -26,7 +27,7 @@ record Arguments(
       switch (option) {
         case "--seeder" -> seeder = requireValue(option, value);
         case "--scale" -> scale = parseScale(requireValue(option, value));
-        case "--only", "--linear", "--help", "--verbose", "--discover" -> {
+        case "--only", "--linear", "--help", "--verbose", "--discover", "--list" -> {
           if (value != null) {
             throw new IllegalArgumentException(option + " does not take a value");
           }
@@ -36,6 +37,10 @@ record Arguments(
     }
 
     boolean only = seen.contains("--only");
+    boolean list = seen.contains("--list");
+    if (list && (seeder != null || only)) {
+      throw new IllegalArgumentException("--list cannot be combined with --seeder or --only");
+    }
     if (only && seeder == null) {
       throw new IllegalArgumentException("--only requires --seeder");
     }
@@ -46,6 +51,7 @@ record Arguments(
         seen.contains("--help"),
         seen.contains("--verbose"),
         seen.contains("--discover"),
+        list,
         options);
   }
 

@@ -85,6 +85,7 @@ tasks.register<JavaExec>("seed") {
 Run all discovered seeders or select one from the application directory:
 
 ```sh
+./gradlew seed --args="--list"
 ./gradlew seed
 ./gradlew seed --args="--seeder=OrderSeeder --scale=2"
 ```
@@ -151,18 +152,26 @@ To pass custom options, use `-Dexec.args`. It replaces the configured argument l
   -Dexec.args='-cp "%classpath" io.github.brayandm.seeder.cli.SeederCli --discover --seeder=OrderSeeder --scale=2'
 ```
 
+To list available seeders from Maven:
+
+```sh
+./mvnw compile exec:exec@seed \
+  -Dexec.args='-cp "%classpath" io.github.brayandm.seeder.cli.SeederCli --discover --list'
+```
+
 If your application uses an installed Maven distribution, replace `./mvnw` with `mvn`.
 
 ## CLI options
 
 | Option | Behavior |
 | --- | --- |
-| `--discover` | Instantiates eligible seeders from class directories and JARs on the runtime classpath. Both build examples enable discovery. |
+| `--discover` | Finds eligible seeders in class directories and JARs on the runtime classpath. Both build examples enable discovery. |
 | `--seeder=<class>` | Runs the selected seeder and its dependencies. Accepts a simple name when unique or a fully qualified class name. Omit it to run all available seeders. |
 | `--only` | Runs just the selected seeder. Requires `--seeder`. Results from its dependencies are unavailable in this run. |
 | `--linear` | Runs tasks sequentially. Eligible tasks run in parallel by default. |
 | `--scale=<number>` | Sets a finite positive scale, defaulting to `1`. Seeders apply it through methods such as `context.scaled(3)`. |
 | `--verbose` | Adds timestamps, durations, counters, fully qualified names, and execution settings to the live CLI output. |
+| `--list` | Prints fully qualified seeder class names, one per line in alphabetical order, without running them. Use it without `--seeder` or `--only`. |
 | `--help` | Prints usage and exits. |
 
 By default, the CLI prints a live start and completion or failure line for each seeder. Any output written directly by your seeders also goes to the console.
@@ -211,6 +220,10 @@ replace the CLI main class and `--discover` with these arguments:
 <argument>io.github.brayandm.seeder.spring.SpringSeederCli</argument>
 <argument>--application=com.example.MyApplication</argument>
 ```
+
+Use `--list` with the Spring launcher to see which seeders are available under
+the active Spring profiles. Listing starts the Spring context to discover its
+beans and skips seeder execution.
 
 The command starts a Spring application context in console mode and closes it
 when the CLI returns. Regular application startup registers the seeders and
