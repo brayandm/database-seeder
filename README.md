@@ -112,7 +112,19 @@ transitively.
 </dependencies>
 ```
 
-Use JDK 21 for Maven and set the compiler release to `21` in your application. Add this execution under `<build><plugins>`:
+Use JDK 21 for Maven and add these properties to your application's POM.
+Merge them into your existing `<properties>` block if you have one.
+
+```xml
+<properties>
+    <maven.compiler.release>21</maven.compiler.release>
+    <seed.args/>
+</properties>
+```
+
+Add the named execution under `<build><plugins>`. The POM supplies the
+classpath, CLI entry point, and discovery flag. Pass your options through
+`seed.args`.
 
 ```xml
 <plugin>
@@ -127,39 +139,48 @@ Use JDK 21 for Maven and set the compiler release to `21` in your application. A
             </goals>
             <configuration>
                 <executable>${java.home}/bin/java</executable>
-                <arguments>
-                    <argument>-cp</argument>
-                    <classpath/>
-                    <argument>io.github.brayandm.seeder.cli.SeederCli</argument>
-                    <argument>--discover</argument>
-                </arguments>
+                <commandlineArgs>-cp "%classpath" io.github.brayandm.seeder.cli.SeederCli --discover ${seed.args}</commandlineArgs>
             </configuration>
         </execution>
     </executions>
 </plugin>
 ```
 
-From your application's directory, run the named execution:
+From your application directory:
 
 ```sh
 ./mvnw compile exec:exec@seed
+./mvnw compile exec:exec@seed -Dseed.args="--list"
+./mvnw compile exec:exec@seed -Dseed.args="--seeder=OrderSeeder --scale=2"
 ```
 
-To pass custom options, use `-Dexec.args`. It replaces the configured argument list, so include the classpath, entry point, and discovery flag:
+Use `mvn` in place of `./mvnw` if you have Maven installed and your project
+does not include the wrapper.
+
+For a shorter command on Unix-like systems, save this as `seed` in the
+application directory and run `chmod +x seed`. Pass the options as one
+quoted string, just as with Gradle's `--args`.
 
 ```sh
-./mvnw compile exec:exec@seed \
-  -Dexec.args='-cp "%classpath" io.github.brayandm.seeder.cli.SeederCli --discover --seeder=OrderSeeder --scale=2'
-```
+#!/bin/sh
+set -eu
 
-To list available seeders from Maven:
+if [ "$#" -gt 1 ]; then
+    printf '%s\n' 'Usage: ./seed ["--seeder=OrderSeeder --scale=2"]' >&2
+    exit 2
+fi
+cd "$(dirname "$0")"
+if [ -x ./mvnw ]; then
+    exec ./mvnw compile exec:exec@seed "-Dseed.args=${1:-}"
+fi
+exec mvn compile exec:exec@seed "-Dseed.args=${1:-}"
+```
 
 ```sh
-./mvnw compile exec:exec@seed \
-  -Dexec.args='-cp "%classpath" io.github.brayandm.seeder.cli.SeederCli --discover --list'
+./seed
+./seed "--list"
+./seed "--seeder=OrderSeeder --scale=2"
 ```
-
-If your application uses an installed Maven distribution, replace `./mvnw` with `mvn`.
 
 ## CLI options
 
@@ -213,12 +234,19 @@ using the fully qualified name of your Spring Boot configuration class. Then run
 ```
 
 For Maven, run the same `publishToMavenLocal` command and replace the CLI
-dependency with the starter dependency. In the named execution,
-replace the CLI main class and `--discover` with these arguments:
+dependency with the starter dependency. Change only `<commandlineArgs>` in the
+named execution. Use the same Maven commands or `./seed` script shown above.
 
 ```xml
-<argument>io.github.brayandm.seeder.spring.SpringSeederCli</argument>
-<argument>--application=com.example.MyApplication</argument>
+<commandlineArgs>-cp "%classpath" io.github.brayandm.seeder.spring.SpringSeederCli --application=com.example.MyApplication ${seed.args}</commandlineArgs>
+```
+
+For Spring option values containing spaces, quote the entire option inside the
+argument string:
+
+```sh
+./gradlew seed --args='--seeder=OrderSeeder "--spring.application.name=Seed demo"'
+./seed '--seeder=OrderSeeder "--spring.application.name=Seed demo"'
 ```
 
 Use `--list` with the Spring launcher to see which seeders are available under
