@@ -25,7 +25,7 @@ def main():
     examples = (
         (rf"^(\*\*Latest stable release:\*\* `){old_version}(`)", 1),
         (rf"(io\.github\.brayandm:database-seeder-(?:cli|spring-boot-starter):){old_version}([`\"])", 2),
-        (rf"(<artifactId>database-seeder-cli</artifactId>\s*<version>){old_version}(</version>)", 1),
+        (rf"(<artifactId>database-seeder-(?:cli|spring-boot-starter)</artifactId>\s*<version>){old_version}(</version>)", 2),
     )
     for pattern, expected in examples:
         content, count = re.subn(

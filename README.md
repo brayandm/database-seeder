@@ -260,13 +260,53 @@ List available seeders or run a specific seeder.
 
 ### Maven
 
-For Maven, replace the CLI dependency with the starter dependency and change
-`<commandlineArgs>` in the named execution. Use the same Maven commands or
-`./seed` script shown above.
+Add these entries to your Spring Boot application's `pom.xml`. Merge them into
+your existing blocks and set `com.example.MyApplication` to the fully qualified
+name of your application's `@SpringBootApplication` class. Run Maven with JDK 21.
 
 ```xml
-<commandlineArgs>-cp "%classpath" io.github.brayandm.seeder.spring.SpringSeederCli --application=com.example.MyApplication ${seed.args}</commandlineArgs>
+<properties>
+    <seed.args/>
+</properties>
+
+<dependencies>
+    <dependency>
+        <groupId>io.github.brayandm</groupId>
+        <artifactId>database-seeder-spring-boot-starter</artifactId>
+        <version>0.1.1</version>
+    </dependency>
+</dependencies>
+
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.7.0</version>
+            <executions>
+                <execution>
+                    <id>seed</id>
+                    <goals>
+                        <goal>exec</goal>
+                    </goals>
+                    <configuration>
+                        <executable>${java.home}/bin/java</executable>
+                        <commandlineArgs>-cp "%classpath" io.github.brayandm.seeder.spring.SpringSeederCli --application=com.example.MyApplication ${seed.args}</commandlineArgs>
+                    </configuration>
+                </execution>
+            </executions>
+        </plugin>
+    </plugins>
+</build>
 ```
+
+```sh
+./mvnw compile exec:exec@seed -Dseed.args="--list"
+./mvnw compile exec:exec@seed -Dseed.args="--seeder=OrderSeeder --scale=2"
+```
+
+Use `mvn` if your project has no Maven wrapper. You can also use the `./seed`
+script from the Maven section above.
 
 For Spring option values containing spaces, quote the entire option inside the
 argument string:
