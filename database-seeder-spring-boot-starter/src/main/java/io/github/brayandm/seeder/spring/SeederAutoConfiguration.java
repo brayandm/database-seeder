@@ -47,12 +47,11 @@ public class SeederAutoConfiguration {
             @Override
             protected boolean checkCandidate(String beanName, BeanDefinition candidate) {
               for (var registeredName : registry.getBeanDefinitionNames()) {
-                if (beanName.equals(registeredName)) {
-                  continue;
-                }
                 var registeredType = factory.getType(registeredName, false);
                 if (registeredType != null
-                    && registeredType.getName().equals(candidate.getBeanClassName())) {
+                    && SeedTask.class.isAssignableFrom(registeredType)
+                    && (beanName.equals(registeredName)
+                        || registeredType.getName().equals(candidate.getBeanClassName()))) {
                   return false;
                 }
               }

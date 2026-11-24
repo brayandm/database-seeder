@@ -200,6 +200,13 @@ It discovers concrete `@Seeder` classes implementing `SeedTask<R>` in the
 application's Spring Boot auto-configuration packages and registers them as beans.
 Spring can inject repositories or services through a seeder's constructor.
 
+If you register an annotated seeder yourself with a Spring `@Bean` method,
+declare the concrete seeder class as the return type. If the return type is
+`SeedTask<R>`, name the bean after the seeder's fully qualified class name
+(for example, `@Bean("com.example.seeding.CustomerSeeder")`). This lets the starter
+skip automatic registration of the same seeder, including when Spring injects
+a `List<SeedTask<?>>`.
+
 ```java
 @Seeder(dependsOn = CustomerSeeder.class)
 public class OrderSeeder implements SeedTask<Void> {

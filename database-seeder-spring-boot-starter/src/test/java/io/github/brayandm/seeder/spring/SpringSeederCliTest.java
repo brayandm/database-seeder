@@ -111,6 +111,21 @@ class SpringSeederCliTest {
   }
 
   @Test
+  void namedFactoryBeanReplacesDiscoveryForSpringListInjection() {
+    try (var context =
+        new SpringApplicationBuilder(TestApplication.class)
+            .web(WebApplicationType.NONE)
+            .profiles("named-seeder")
+            .run()) {
+      var repository = context.getBean(Repository.class);
+      assertEquals(2, context.getBean(TestApplication.InjectedSeeders.class).seeders().size());
+      assertEquals(1, repository.customerInstances());
+      context.getBean(SeederRunner.class).run(Orders.class, new SeedOptions(false, 2, 0));
+      assertEquals(6, repository.orders());
+    }
+  }
+
+  @Test
   void keepsConsoleModeDespiteApplicationArguments() {
     assertEquals(
         0,

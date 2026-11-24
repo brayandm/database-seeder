@@ -3,6 +3,7 @@ package io.github.brayandm.seeder.spring.fixture;
 import io.github.brayandm.seeder.SeedContext;
 import io.github.brayandm.seeder.SeedTask;
 import io.github.brayandm.seeder.Seeder;
+import java.util.List;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.boot.ApplicationRunner;
@@ -35,6 +36,20 @@ public class TestApplication {
   SeedTask<Long> explicitCustomers(Repository repository) {
     return new Customers(repository);
   }
+
+  @Bean(name = "io.github.brayandm.seeder.spring.fixture.TestApplication$Customers")
+  @Profile("named-seeder")
+  SeedTask<Long> namedCustomers(Repository repository) {
+    return new Customers(repository);
+  }
+
+  @Bean
+  @Profile("named-seeder")
+  InjectedSeeders injectedSeeders(List<SeedTask<?>> seeders) {
+    return new InjectedSeeders(seeders);
+  }
+
+  public record InjectedSeeders(List<SeedTask<?>> seeders) {}
 
   @Bean
   @Profile("console-test")
