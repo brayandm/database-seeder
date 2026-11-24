@@ -265,19 +265,3 @@ A failed seeder blocks tasks that depend on it. Independent branches in a
 parallel run can still complete. Set `--linear` to stop on the first failure in
 execution order. Transaction boundaries and retry behavior are controlled by
 your seeders and their repositories.
-
-## Prepare a release
-
-Run `./gradlew check publishToMavenLocal` and `python3 .github/smoke-test.py` with
-Java 21 and Maven installed to verify the published metadata from both build
-tools. For a signed release, export your ASCII-armored PGP secret key as
-`DATABASE_SEEDER_SIGNING_KEY` and its passphrase as
-`DATABASE_SEEDER_SIGNING_PASSWORD` if applicable. Then build the bundle:
-
-```sh
-./gradlew check centralBundle -PreleaseVersion=0.1.0
-```
-
-The bundle is written to `build/distributions/database-seeder-0.1.0.zip`.
-It can be uploaded manually in [Sonatype Central Portal](https://central.sonatype.com/)
-after verifying the `io.github.brayandm` namespace.

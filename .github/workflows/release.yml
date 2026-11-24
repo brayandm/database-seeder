@@ -1,0 +1,110 @@
+name: Release to Maven Central
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version, for example 0.1.0
+        required: true
+        type: string
+      automatic:
+        description: Publish automatically after Sonatype validates the bundle
+        default: false
+        type: boolean
+      deployment_id:
+        description: Existing Sonatype deployment ID to resume without uploading again
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maven-central-${{ inputs.version }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_VERSION: ${{ inputs.version }}
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: release
+    outputs:
+      release_sha: ${{ steps.published.outputs.release_sha }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check version and tag
+        run: |
+          if [[ ! "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Use a release version such as 0.1.0." >&2
+            exit 1
+          fi
+          status=0
+          git ls-remote --exit-code --refs origin "refs/tags/v$RELEASE_VERSION" || status=$?
+          case "$status" in
+            0) echo "Tag v$RELEASE_VERSION already exists." >&2; exit 1 ;;
+            2) ;;
+            *) exit "$status" ;;
+          esac
+      - uses: actions/setup-java@v5
+        if: inputs.deployment_id == ''
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Test and sign the release
+        if: inputs.deployment_id == ''
+        env:
+          DATABASE_SEEDER_SIGNING_KEY: ${{ secrets.DATABASE_SEEDER_SIGNING_KEY }}
+          DATABASE_SEEDER_SIGNING_PASSWORD: ${{ secrets.DATABASE_SEEDER_SIGNING_PASSWORD }}
+        run: |
+          : "${DATABASE_SEEDER_SIGNING_KEY:?Configure the release signing key}"
+          ./gradlew --no-daemon --no-configuration-cache check centralBundle "-PreleaseVersion=$RELEASE_VERSION"
+      - name: Upload or select the Central deployment
+        id: deployment
+        env:
+          CENTRAL_TOKEN_USERNAME: ${{ secrets.CENTRAL_TOKEN_USERNAME }}
+          CENTRAL_TOKEN_PASSWORD: ${{ secrets.CENTRAL_TOKEN_PASSWORD }}
+          EXISTING_DEPLOYMENT_ID: ${{ inputs.deployment_id }}
+          AUTOMATIC: ${{ inputs.automatic }}
+        run: |
+          deployment_id="$EXISTING_DEPLOYMENT_ID"
+          if [[ -z "$deployment_id" ]]; then
+            deployment_id=$(bash .github/central-release.sh upload "$RELEASE_VERSION" "$GITHUB_SHA" "$AUTOMATIC")
+          fi
+          if [[ ! "$deployment_id" =~ ^[0-9a-fA-F-]{36}$ ]]; then
+            echo "Expected a Sonatype deployment ID." >&2
+            exit 1
+          fi
+          printf 'id=%s\n' "$deployment_id" >> "$GITHUB_OUTPUT"
+          printf 'Maven Central deployment: `%s` ([Central Portal](https://central.sonatype.com/publishing/deployments))\n' "$deployment_id" >> "$GITHUB_STEP_SUMMARY"
+      - name: Wait for Maven Central
+        id: published
+        env:
+          CENTRAL_TOKEN_USERNAME: ${{ secrets.CENTRAL_TOKEN_USERNAME }}
+          CENTRAL_TOKEN_PASSWORD: ${{ secrets.CENTRAL_TOKEN_PASSWORD }}
+          DEPLOYMENT_ID: ${{ steps.deployment.outputs.id }}
+        run: |
+          release_sha=$(bash .github/central-release.sh wait "$RELEASE_VERSION" "$DEPLOYMENT_ID")
+          printf 'release_sha=%s\n' "$release_sha" >> "$GITHUB_OUTPUT"
+
+  tag:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Tag the published commit
+        env:
+          RELEASE_SHA: ${{ needs.publish.outputs.release_sha }}
+        run: |
+          git merge-base --is-ancestor "$RELEASE_SHA" "$GITHUB_SHA"
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com \
+            tag -a "v$RELEASE_VERSION" "$RELEASE_SHA" -m "Release $RELEASE_VERSION"
+          git push origin "refs/tags/v$RELEASE_VERSION"
+          printf 'Published and tagged `v%s` at `%s`.\n' "$RELEASE_VERSION" "$RELEASE_SHA" >> "$GITHUB_STEP_SUMMARY"
