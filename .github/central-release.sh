@@ -8,6 +8,20 @@ portal=https://central.sonatype.com/api/v1/publisher
 request=(curl --fail --silent --show-error --connect-timeout 15 --max-time 90
   --header "Authorization: Bearer $authorization" --request POST)
 
+artifacts_available() {
+  local version=$1 artifact extension
+  local repository=https://repo.maven.apache.org/maven2/io/github/brayandm
+  for artifact in database-seeder-core database-seeder-cli database-seeder-spring-boot-starter; do
+    for extension in pom jar; do
+      if ! curl --fail --silent --head --connect-timeout 5 --max-time 15 --output /dev/null \
+        "$repository/$artifact/$version/$artifact-$version.$extension"; then
+        printf 'Waiting for Maven Central to serve %s:%s (%s).\n' "$artifact" "$version" "$extension" >&2
+        return 1
+      fi
+    done
+  done
+}
+
 case "$1" in
   upload)
     version=$2
@@ -42,17 +56,10 @@ case "$1" in
       fi
       case "$state" in
         PUBLISHED)
-          jq -e --arg version "$version" '
-            (.purls | sort) == [
-              "pkg:maven/io.github.brayandm/database-seeder-cli@" + $version,
-              "pkg:maven/io.github.brayandm/database-seeder-core@" + $version,
-              "pkg:maven/io.github.brayandm/database-seeder-spring-boot-starter@" + $version
-            ]' <<< "$response" > /dev/null || {
-              echo "The deployment does not contain the expected three artifacts." >&2
-              exit 1
-            }
-          printf '%s\n' "$sha"
-          exit 0
+          if artifacts_available "$version"; then
+            printf '%s\n' "$sha"
+            exit 0
+          fi
           ;;
         FAILED)
           printf 'Sonatype validation errors: %s\n' "$(jq -c '.errors // {}' <<< "$response")" >&2

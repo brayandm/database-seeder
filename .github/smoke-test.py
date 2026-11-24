@@ -8,7 +8,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CLI = "io.github.brayandm.seeder.cli.SeederCli"
-VERSION = "0.1.0-SNAPSHOT"
+development_version = re.search(
+    r"^developmentVersion=([^\s]+)$",
+    (ROOT / "gradle.properties").read_text(encoding="utf-8"),
+    re.MULTILINE,
+)
+if development_version is None:
+    raise ValueError("Set developmentVersion in gradle.properties.")
+VERSION = development_version.group(1)
 DEPENDENCY = f"io.github.brayandm:database-seeder-cli:{VERSION}"
 EXPECTED_ORDERS = "Creating example orders for customers [1, 2, 3, 4, 5, 6]"
 

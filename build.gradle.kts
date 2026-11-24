@@ -4,7 +4,8 @@ import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.plugins.signing.SigningExtension
 import org.gradle.external.javadoc.StandardJavadocDocletOptions
 
-val publicationVersion = providers.gradleProperty("releaseVersion").orElse("0.1.0-SNAPSHOT")
+val publicationVersion = providers.gradleProperty("releaseVersion")
+    .orElse(providers.gradleProperty("developmentVersion"))
 val signingKey = providers.environmentVariable("DATABASE_SEEDER_SIGNING_KEY")
 val signingPassword = providers.environmentVariable("DATABASE_SEEDER_SIGNING_PASSWORD")
 val releaseRepository = layout.buildDirectory.dir("release-repository")
@@ -28,9 +29,11 @@ subprojects {
             dependsOn(tasks.named("javadoc"))
         }
 
-        tasks.named<Jar>("jar") {
-            from(rootProject.file("LICENSE")) {
-                into("META-INF")
+        for (artifact in listOf("jar", "sourcesJar", "javadocJar")) {
+            tasks.named<Jar>(artifact) {
+                from(rootProject.file("LICENSE")) {
+                    into("META-INF")
+                }
             }
         }
 

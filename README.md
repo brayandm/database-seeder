@@ -49,13 +49,9 @@ public class OrderSeeder implements SeedTask<Void> {
 
 Running `OrderSeeder` runs `CustomerSeeder` first. With `--scale=2`, the customer seeder returns six IDs. The example uses in-memory values to show how results flow between seeders.
 
+**Latest stable release:** `0.1.0` ([Maven Central](https://central.sonatype.com/artifact/io.github.brayandm/database-seeder-cli))
+
 ## Run with Gradle
-
-The current version is `0.1.0-SNAPSHOT`. To use it from source, keep a checkout of this repository beside your application and add the following to your application's `settings.gradle.kts`:
-
-```kotlin
-includeBuild("../database-seeder")
-```
 
 In your application's `build.gradle.kts`, apply the Java plugin, add the dependency, and define the `seed` task. Merge these entries into any existing blocks.
 
@@ -68,8 +64,12 @@ java {
     toolchain.languageVersion.set(JavaLanguageVersion.of(21))
 }
 
+repositories {
+    mavenCentral()
+}
+
 dependencies {
-    implementation("io.github.brayandm:database-seeder-cli:0.1.0-SNAPSHOT")
+    implementation("io.github.brayandm:database-seeder-cli:0.1.0")
 }
 
 tasks.register<JavaExec>("seed") {
@@ -92,13 +92,6 @@ Run all discovered seeders or select one from the application directory:
 
 ## Run with Maven
 
-Install the snapshot and its publication metadata into your local Maven repository.
-Run this command from the root of the Database Seeder checkout:
-
-```sh
-./gradlew publishToMavenLocal
-```
-
 Add the CLI dependency to your application's `pom.xml`. Maven resolves the core
 transitively.
 
@@ -107,7 +100,7 @@ transitively.
     <dependency>
         <groupId>io.github.brayandm</groupId>
         <artifactId>database-seeder-cli</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
+        <version>0.1.0</version>
     </dependency>
 </dependencies>
 ```
@@ -201,7 +194,7 @@ For seeders that need constructor arguments, use a `SeederProvider` registered t
 
 ## Run with Spring Boot
 
-Use `io.github.brayandm:database-seeder-spring-boot-starter:0.1.0-SNAPSHOT` in
+Use `io.github.brayandm:database-seeder-spring-boot-starter:0.1.0` in
 place of the CLI dependency. The starter was tested with Spring Boot 4.2.0 and Java 21.
 It discovers concrete `@Seeder` classes implementing `SeedTask<R>` in the
 application's Spring Boot auto-configuration packages and registers them as beans.
@@ -233,9 +226,9 @@ using the fully qualified name of your Spring Boot configuration class. Then run
 ./gradlew seed --args="--seeder=OrderSeeder --scale=2"
 ```
 
-For Maven, run the same `publishToMavenLocal` command and replace the CLI
-dependency with the starter dependency. Change only `<commandlineArgs>` in the
-named execution. Use the same Maven commands or `./seed` script shown above.
+For Maven, replace the CLI dependency with the starter dependency and change
+`<commandlineArgs>` in the named execution. Use the same Maven commands or
+`./seed` script shown above.
 
 ```xml
 <commandlineArgs>-cp "%classpath" io.github.brayandm.seeder.spring.SpringSeederCli --application=com.example.MyApplication ${seed.args}</commandlineArgs>
@@ -265,3 +258,11 @@ A failed seeder blocks tasks that depend on it. Independent branches in a
 parallel run can still complete. Set `--linear` to stop on the first failure in
 execution order. Transaction boundaries and retry behavior are controlled by
 your seeders and their repositories.
+
+## Try a local development build
+
+To try an unpublished version, run `./gradlew publishToMavenLocal` from a
+Database Seeder checkout. In your application, replace the stable version in
+the dependency with `developmentVersion` from the checkout's `gradle.properties`.
+If your application uses Gradle, add `mavenLocal()` before `mavenCentral()` in
+its repositories block.
