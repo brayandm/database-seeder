@@ -49,7 +49,7 @@ public class OrderSeeder implements SeedTask<Void> {
 
 Running `OrderSeeder` runs `CustomerSeeder` first. With `--scale=2`, the customer seeder returns six IDs. The example uses in-memory values to show how results flow between seeders.
 
-**Latest stable release:** `0.1.0` ([Maven Central](https://central.sonatype.com/artifact/io.github.brayandm/database-seeder-cli))
+**Latest stable release:** `0.1.1` ([Maven Central](https://central.sonatype.com/artifact/io.github.brayandm/database-seeder-cli))
 
 ## Run with Gradle
 
@@ -69,7 +69,7 @@ repositories {
 }
 
 dependencies {
-    implementation("io.github.brayandm:database-seeder-cli:0.1.0")
+    implementation("io.github.brayandm:database-seeder-cli:0.1.1")
 }
 
 tasks.register<JavaExec>("seed") {
@@ -100,7 +100,7 @@ transitively.
     <dependency>
         <groupId>io.github.brayandm</groupId>
         <artifactId>database-seeder-cli</artifactId>
-        <version>0.1.0</version>
+        <version>0.1.1</version>
     </dependency>
 </dependencies>
 ```
@@ -194,8 +194,7 @@ For seeders that need constructor arguments, use a `SeederProvider` registered t
 
 ## Run with Spring Boot
 
-Use `io.github.brayandm:database-seeder-spring-boot-starter:0.1.0` in
-place of the CLI dependency. The starter was tested with Spring Boot 4.2.0 and Java 21.
+The starter was tested with Spring Boot 4.2.0 and Java 21.
 It discovers concrete `@Seeder` classes implementing `SeedTask<R>` in the
 application's Spring Boot auto-configuration packages and registers them as beans.
 Spring can inject repositories or services through a seeder's constructor.
@@ -224,14 +223,42 @@ public class OrderSeeder implements SeedTask<Void> {
 }
 ```
 
-For Gradle, use the same `seed` task shown above with
-`io.github.brayandm.seeder.spring.SpringSeederCli` as the main class. Replace
-`--discover` in the argument provider with `--application=com.example.MyApplication`,
-using the fully qualified name of your Spring Boot configuration class. Then run:
+### Gradle
+
+Add this to your Spring Boot application's `build.gradle.kts`. Merge the
+repository and dependency entries into your existing blocks. Set
+`com.example.MyApplication` to the fully qualified name of your application's
+`@SpringBootApplication` class.
+
+```kotlin
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation("io.github.brayandm:database-seeder-spring-boot-starter:0.1.1")
+}
+
+tasks.register<JavaExec>("seed") {
+    group = "application"
+    description = "Run Database Seeder with Spring Boot."
+    mainClass.set("io.github.brayandm.seeder.spring.SpringSeederCli")
+    classpath = sourceSets.main.get().runtimeClasspath
+    javaLauncher.set(javaToolchains.launcherFor(java.toolchain))
+    argumentProviders.add(CommandLineArgumentProvider {
+        listOf("--application=com.example.MyApplication")
+    })
+}
+```
+
+List available seeders or run a specific seeder.
 
 ```sh
+./gradlew seed --args="--list"
 ./gradlew seed --args="--seeder=OrderSeeder --scale=2"
 ```
+
+### Maven
 
 For Maven, replace the CLI dependency with the starter dependency and change
 `<commandlineArgs>` in the named execution. Use the same Maven commands or
