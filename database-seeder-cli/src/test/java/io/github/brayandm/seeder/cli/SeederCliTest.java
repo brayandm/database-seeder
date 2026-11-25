@@ -138,6 +138,44 @@ class SeederCliTest {
   }
 
   @Test
+  void dryRunGroupsIndependentSeedersWithoutRunningThem() {
+    var users = new Users();
+    var posts = new Posts();
+    var other = new Other();
+
+    assertEquals(0, run(List.of(posts, users, other), "--dry-run"));
+    assertEquals(
+        List.of(
+            "Dry run (parallel, scale=1.0)",
+            "1. " + Users.class.getName() + ", " + Other.class.getName() + " (can run in parallel)",
+            "2. " + Posts.class.getName()),
+        output.toString(StandardCharsets.UTF_8).lines().toList());
+    assertNull(users.thread);
+    assertEquals(0, posts.userCount);
+    assertFalse(other.ran);
+  }
+
+  @Test
+  void dryRunPlansOnlyTheSelectedSeederWhenRequested() {
+    assertEquals(0, run(List.of(new Posts()), "--dry-run", "--only", "--seeder=Posts", "--linear"));
+    assertEquals(
+        List.of("Dry run (linear, scale=1.0)", "1. " + Posts.class.getName()),
+        output.toString(StandardCharsets.UTF_8).lines().toList());
+  }
+
+  @Test
+  void dryRunValidatesDependenciesOfTheSelectedSeeder() {
+    assertEquals(1, run(List.of(new Posts()), "--dry-run", "--seeder=Posts"));
+    assertTrue(errors.toString(StandardCharsets.UTF_8).contains("Missing seeder"));
+    assertEquals(0, output.size());
+  }
+
+  @Test
+  void rejectsCombiningDryRunAndList() {
+    assertEquals(2, run(List.of(), "--dry-run", "--list"));
+  }
+
+  @Test
   void flushesProgressBeforeTheSeederFinishes() {
     var buffered = new PrintStream(new BufferedOutputStream(output), false, StandardCharsets.UTF_8);
     SeedTask<Void> task =

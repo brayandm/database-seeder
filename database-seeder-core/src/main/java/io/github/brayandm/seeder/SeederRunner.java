@@ -3,6 +3,7 @@ package io.github.brayandm.seeder;
 import io.github.brayandm.seeder.internal.SeedGraph;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -140,6 +141,49 @@ public final class SeederRunner {
   public void runOnly(Class<? extends SeedTask<?>> target, SeedOptions options) {
     requireRegistered(target);
     invoke(target, Map.of(), options);
+  }
+
+  /**
+   * Plans all registered seeders without invoking their factories or tasks.
+   *
+   * @param options execution settings
+   * @return immutable groups ordered by dependency depth, or one task per group in linear mode
+   */
+  public List<List<Class<? extends SeedTask<?>>>> planAll(SeedOptions options) {
+    return planGroups(graph.order(), options);
+  }
+
+  /**
+   * Plans a selected seeder without invoking its factory or task.
+   *
+   * @param target registered seeder to select
+   * @param only whether to skip its dependencies
+   * @param options execution settings
+   * @return immutable groups ordered by dependency depth, or one task per group in linear mode
+   */
+  public List<List<Class<? extends SeedTask<?>>>> plan(
+      Class<? extends SeedTask<?>> target, boolean only, SeedOptions options) {
+    requireRegistered(target);
+    return planGroups(only ? List.of(target) : graph.order(List.of(target)), options);
+  }
+
+  private List<List<Class<? extends SeedTask<?>>>> planGroups(
+      List<Class<? extends SeedTask<?>>> order, SeedOptions options) {
+    if (!options.parallel() || order.size() < 2) {
+      return order.stream().map(task -> List.<Class<? extends SeedTask<?>>>of(task)).toList();
+    }
+
+    var depths = new HashMap<Class<? extends SeedTask<?>>, Integer>();
+    var groups = new ArrayList<List<Class<? extends SeedTask<?>>>>();
+    for (var task : order) {
+      int depth = graph.dependencies(task).stream().mapToInt(depths::get).max().orElse(-1) + 1;
+      depths.put(task, depth);
+      if (depth == groups.size()) {
+        groups.add(new ArrayList<>());
+      }
+      groups.get(depth).add(task);
+    }
+    return groups.stream().map(List::copyOf).toList();
   }
 
   private void requireRegistered(Class<? extends SeedTask<?>> target) {

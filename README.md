@@ -186,7 +186,17 @@ exec mvn compile exec:exec@seed "-Dseed.args=${1:-}"
 | `--scale=<number>` | Sets a finite positive scale, defaulting to `1`. Seeders apply it through methods such as `context.scaled(3)`. |
 | `--verbose` | Adds timestamps, durations, counters, fully qualified names, and execution settings to the live CLI output. |
 | `--list` | Prints fully qualified seeder class names, one per line in alphabetical order, without running them. Use it without `--seeder` or `--only`. |
+| `--dry-run` | Validates dependencies and prints the execution plan without running seeders. Supports `--seeder`, `--only`, and `--linear`. Use separately from `--list`. |
 | `--help` | Prints usage and exits. |
+
+```sh
+./gradlew seed --args="--dry-run --seeder=OrderSeeder"
+./mvnw compile exec:exec@seed -Dseed.args="--dry-run --seeder=OrderSeeder"
+```
+
+In parallel mode, the plan groups seeders by dependency depth. During execution,
+each seeder can start as soon as its own dependencies finish, even when other
+seeders in an earlier group are still running.
 
 By default, the CLI prints a live start and completion or failure line for each seeder. Any output written directly by your seeders also goes to the console.
 
@@ -318,7 +328,9 @@ argument string:
 
 Use `--list` with the Spring launcher to see which seeders are available under
 the active Spring profiles. Listing starts the Spring context to discover its
-beans and skips seeder execution.
+beans and skips seeder execution. `--dry-run` also starts the Spring context to
+resolve the active seeders. Application startup can still open database connections
+or run migrations.
 
 The command starts a Spring application context in console mode and closes it
 when the CLI returns. Regular application startup registers the seeders and

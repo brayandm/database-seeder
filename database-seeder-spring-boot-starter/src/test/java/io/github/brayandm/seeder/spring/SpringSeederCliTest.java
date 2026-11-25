@@ -68,6 +68,26 @@ class SpringSeederCliTest {
   }
 
   @Test
+  void plansSpringSeedersWithoutExecutingThem() {
+    var output = new ByteArrayOutputStream();
+    var status =
+        SpringSeederCli.run(
+            new String[] {
+              "--application=" + TestApplication.class.getName(), "--dry-run", "--seeder=Orders"
+            },
+            new PrintStream(output, false, StandardCharsets.UTF_8),
+            System.err);
+
+    assertEquals(0, status);
+    assertEquals(
+        List.of(
+            "Dry run (parallel, scale=1.0)",
+            "1. " + Customers.class.getName(),
+            "2. " + Orders.class.getName()),
+        output.toString(StandardCharsets.UTF_8).lines().toList());
+  }
+
+  @Test
   void invalidArgumentsDoNotStartTheApplication() {
     int before = StartupApplication.starts.get();
 

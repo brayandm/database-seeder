@@ -7,6 +7,7 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
@@ -19,7 +20,7 @@ import java.util.stream.Collectors;
 public final class SeederCli {
   private static final String HELP =
       """
-      Usage: [--seeder=<class>] [--only] [--linear] [--scale=<number>] [--verbose] [--discover] [--list] [--help]
+      Usage: [--seeder=<class>] [--only] [--linear] [--scale=<number>] [--verbose] [--discover] [--list | --dry-run] [--help]
 
         --seeder  Run the named seeder and its dependencies. Accepts a fully
                   qualified class name or an unambiguous simple name.
@@ -29,6 +30,7 @@ public final class SeederCli {
         --verbose Show timestamps, durations, counters, full names and execution settings.
         --discover Discover annotated seeders with public no-argument constructors.
         --list    Print available seeder class names without running them.
+        --dry-run Validate dependencies and print the execution plan without running seeders.
         --help    Show this help.
       """;
 
@@ -144,7 +146,9 @@ public final class SeederCli {
 
     try {
       var runner =
-          source.apply(command, command.list() ? event -> {} : new ConsoleProgress(out, command));
+          source.apply(
+              command,
+              command.list() || command.dryRun() ? event -> {} : new ConsoleProgress(out, command));
       if (command.list()) {
         runner.seederTypes().stream()
             .map(type -> Objects.requireNonNullElse(type.getCanonicalName(), type.getName()))
@@ -160,7 +164,13 @@ public final class SeederCli {
         return usageError(failure, err);
       }
 
-      if (target == null) {
+      if (command.dryRun()) {
+        var groups =
+            target == null
+                ? runner.planAll(command.options())
+                : runner.plan(target, command.only(), command.options());
+        printPlan(groups, command, out);
+      } else if (target == null) {
         runner.runAll(command.options());
       } else if (command.only()) {
         runner.runOnly(target, command.options());
@@ -173,6 +183,25 @@ public final class SeederCli {
       err.flush();
       return 1;
     }
+  }
+
+  private static void printPlan(
+      List<List<Class<? extends SeedTask<?>>>> groups, Arguments command, PrintStream out) {
+    out.println(
+        "Dry run ("
+            + (command.options().parallel() ? "parallel" : "linear")
+            + ", scale="
+            + command.options().scale()
+            + ")");
+    if (groups.isEmpty()) {
+      out.println("No seeders to run.");
+    }
+    for (int i = 0; i < groups.size(); i++) {
+      var group = groups.get(i);
+      var names = group.stream().map(Class::getName).collect(Collectors.joining(", "));
+      out.println((i + 1) + ". " + names + (group.size() > 1 ? " (can run in parallel)" : ""));
+    }
+    out.flush();
   }
 
   private static Collection<SeedTask<?>> discoverSeeders(ClassLoader loader) {
