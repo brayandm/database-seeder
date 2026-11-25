@@ -1,5 +1,6 @@
 package io.github.brayandm.seeder;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -8,9 +9,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.SplittableRandom;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.LongStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -83,6 +87,18 @@ class SeederRunnerTest {
     assertTrue(independentCompleted.get());
   }
 
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void sharesContextWithAThreadStartedInsideASeeder(boolean parallel) {
+    var seeder = new ThreadedSeeder();
+    var options = new SeedOptions(parallel, 2, 42);
+    new SeederRunner(List.of(new Users(), seeder)).run(ThreadedSeeder.class, options);
+
+    long seed = options.seed() ^ ThreadedSeeder.class.getName().hashCode();
+    var expected = new SplittableRandom(seed).longs(10_000).sorted().toArray();
+    assertArrayEquals(expected, seeder.draws);
+  }
+
   @Test
   void rejectsDuplicateRegistrationsAndUnknownTargets() {
     assertThrows(
@@ -125,6 +141,39 @@ class SeederRunnerTest {
       List<Long> users = context.get(Users.class);
       ids.addAll(users);
       return null;
+    }
+  }
+
+  @Seeder(dependsOn = Users.class)
+  private static final class ThreadedSeeder implements SeedTask<Void> {
+    private long[] draws;
+
+    @Override
+    public Void run(SeedContext context) throws Exception {
+      var ready = new CountDownLatch(1);
+      var start = new CountDownLatch(1);
+      var worker =
+          new FutureTask<>(
+              () -> {
+                assertEquals(List.of(6L), context.get(Users.class));
+                ready.countDown();
+                assertTrue(start.await(5, TimeUnit.SECONDS));
+                return context.random().longs(5_000).toArray();
+              });
+      var thread = Thread.startVirtualThread(worker);
+      try {
+        assertTrue(ready.await(5, TimeUnit.SECONDS));
+        start.countDown();
+        var ownDraws = context.random().longs(5_000).toArray();
+        draws =
+            LongStream.concat(
+                    LongStream.of(ownDraws), LongStream.of(worker.get(5, TimeUnit.SECONDS)))
+                .sorted()
+                .toArray();
+        return null;
+      } finally {
+        thread.interrupt();
+      }
     }
   }
 

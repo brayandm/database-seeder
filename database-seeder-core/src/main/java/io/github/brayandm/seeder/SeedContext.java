@@ -2,7 +2,6 @@ package io.github.brayandm.seeder;
 
 import java.util.Map;
 import java.util.Set;
-import java.util.SplittableRandom;
 import java.util.random.RandomGenerator;
 
 /** Gives one seed task access to its completed direct dependencies and run settings. */
@@ -20,7 +19,7 @@ public final class SeedContext {
     this.dependencies = dependencies;
     this.results = results;
     this.scale = options.scale();
-    this.random = new SplittableRandom(options.seed() ^ task.getName().hashCode());
+    this.random = new ConcurrentRandom(options.seed() ^ task.getName().hashCode());
   }
 
   /**
@@ -66,7 +65,8 @@ public final class SeedContext {
   }
 
   /**
-   * Provides deterministic random values for this seeder invocation.
+   * Provides a thread-safe random generator for this seeder invocation. With concurrent callers,
+   * scheduling determines which caller receives each value.
    *
    * @return the random generator owned by this invocation
    */
