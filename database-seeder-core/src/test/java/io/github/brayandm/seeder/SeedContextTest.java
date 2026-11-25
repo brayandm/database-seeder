@@ -6,9 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -39,6 +41,35 @@ class SeedContextTest {
 
     assertThrows(IllegalArgumentException.class, () -> context.get(Producer.class));
     assertThrows(IllegalStateException.class, () -> context.get(Empty.class));
+  }
+
+  @Test
+  void snapshotsDependencyBindings() {
+    var dependencies = new HashSet<Class<? extends SeedTask<?>>>(Set.of(Producer.class));
+    var results = new HashMap<Class<? extends SeedTask<?>>, Object>();
+    results.put(Producer.class, List.of(42));
+    var context = new SeedContext(Consumer.class, dependencies, results, SeedOptions.DEFAULT);
+
+    dependencies.clear();
+    results.clear();
+
+    assertEquals(List.of(42), context.get(Producer.class));
+  }
+
+  @Test
+  void replaysIndependentRandomSequencesById() {
+    var context = new SeedContext(Consumer.class, Set.of(), Map.of(), SeedOptions.DEFAULT);
+    var expected = IntStream.range(0, 100).mapToLong(id -> context.random(id).nextLong()).toArray();
+
+    assertEquals(
+        100,
+        IntStream.range(0, 100).mapToLong(id -> context.random(id).nextLong()).distinct().count());
+    assertArrayEquals(
+        expected,
+        IntStream.range(0, 100)
+            .parallel()
+            .mapToLong(id -> context.random(id).nextLong())
+            .toArray());
   }
 
   @Test

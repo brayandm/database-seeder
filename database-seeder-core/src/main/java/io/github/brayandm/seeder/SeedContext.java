@@ -1,14 +1,18 @@
 package io.github.brayandm.seeder;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.SplittableRandom;
 import java.util.random.RandomGenerator;
 
-/** Gives one seed task access to its completed direct dependencies and run settings. */
+/** Holds a read-only snapshot of one task's dependency bindings and run settings. */
 public final class SeedContext {
   private final Set<Class<? extends SeedTask<?>>> dependencies;
   private final Map<Class<? extends SeedTask<?>>, Object> results;
   private final double scale;
+  private final long randomSeed;
   private final RandomGenerator random;
 
   SeedContext(
@@ -16,14 +20,17 @@ public final class SeedContext {
       Set<Class<? extends SeedTask<?>>> dependencies,
       Map<Class<? extends SeedTask<?>>, Object> results,
       SeedOptions options) {
-    this.dependencies = dependencies;
-    this.results = results;
+    this.dependencies = Set.copyOf(dependencies);
+    // Null is a valid result, so Map.copyOf cannot be used here.
+    this.results = Collections.unmodifiableMap(new HashMap<>(results));
     this.scale = options.scale();
-    this.random = new ConcurrentRandom(options.seed() ^ task.getName().hashCode());
+    this.randomSeed = options.seed() ^ task.getName().hashCode();
+    this.random = new ConcurrentRandom(randomSeed);
   }
 
   /**
-   * Reads the result of a declared direct dependency from this run.
+   * Reads the result of a declared direct dependency from this run. The result object is shared
+   * with other dependents. Publish immutable results or coordinate access to mutable results.
    *
    * @param <R> the result type of the dependency
    * @param dependency the class that produced the result
@@ -72,5 +79,17 @@ public final class SeedContext {
    */
   public RandomGenerator random() {
     return random;
+  }
+
+  /**
+   * Creates a fresh deterministic generator for a unit of work within this invocation. Use stable,
+   * distinct IDs to reproduce results regardless of job scheduling. Calling this method again with
+   * the same ID restarts that sequence.
+   *
+   * @param streamId stable identifier for the unit of work
+   * @return a thread-safe generator for the requested sequence
+   */
+  public RandomGenerator random(long streamId) {
+    return new ConcurrentRandom(randomSeed ^ new SplittableRandom(streamId).nextLong());
   }
 }

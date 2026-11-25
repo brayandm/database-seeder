@@ -18,7 +18,10 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-/** Executes explicitly registered seeders. Each call owns its dependency results. */
+/**
+ * Executes explicitly registered seeders. Each call owns its dependency results. Factories and
+ * listeners must support concurrent calls during parallel or overlapping runs.
+ */
 public final class SeederRunner {
   private final Map<Class<? extends SeedTask<?>>, Supplier<? extends SeedTask<?>>> tasks;
   private static final Consumer<SeederEvent> IGNORE_EVENTS = event -> {};
@@ -79,7 +82,7 @@ public final class SeederRunner {
   private SeederRunner(
       Map<Class<? extends SeedTask<?>>, Supplier<? extends SeedTask<?>>> factories,
       Consumer<SeederEvent> listener) {
-    this.tasks = new LinkedHashMap<>(factories);
+    this.tasks = Collections.unmodifiableMap(new LinkedHashMap<>(factories));
     this.listener = Objects.requireNonNull(listener);
     this.graph = new SeedGraph(tasks.keySet());
   }

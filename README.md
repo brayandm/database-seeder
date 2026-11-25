@@ -328,6 +328,16 @@ invoke the CLI or call the runner.
 
 ## Parallel runs and failures
 
+Each `SeedContext` holds a read-only snapshot of its direct dependency bindings.
+Dependent seeders may read the same result object concurrently, so return immutable
+results or synchronize access to mutable ones. If you reuse a `SeederRunner` across
+overlapping runs, its seeders, factories, and listeners must support concurrent calls.
+
+`context.random()` is safe to share across threads. To reproduce results regardless
+of scheduling, assign each unit of work a stable, distinct ID and use
+`context.random(jobId)` to create its own generator. Reusing an ID restarts that
+sequence.
+
 A failed seeder blocks tasks that depend on it. Independent branches in a
 parallel run can still complete. Set `--linear` to stop on the first failure in
 execution order. Transaction boundaries and retry behavior are controlled by

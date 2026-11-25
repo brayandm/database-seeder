@@ -1,7 +1,9 @@
 package io.github.brayandm.seeder;
 
 /**
- * Produces a result that dependent seeders can read during the same run.
+ * Produces a result that dependent seeders can read during the same run. Return immutable results
+ * or make shared results safe for concurrent access. A runner that reuses instances can invoke the
+ * same instance concurrently when multiple runs overlap.
  *
  * @param <R> the result type, or {@link Void} for a task with no result
  */
