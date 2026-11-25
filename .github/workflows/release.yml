@@ -108,3 +108,37 @@ jobs:
             tag -a "v$RELEASE_VERSION" "$RELEASE_SHA" -m "Release $RELEASE_VERSION"
           git push origin "refs/tags/v$RELEASE_VERSION"
           printf 'Published and tagged `v%s` at `%s`.\n' "$RELEASE_VERSION" "$RELEASE_SHA" >> "$GITHUB_STEP_SUMMARY"
+
+  update-readme:
+    needs: tag
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - name: Update README dependency versions
+        run: |
+          for attempt in 1 2 3; do
+            git fetch --no-tags origin refs/heads/main
+            git switch --detach FETCH_HEAD
+            base=$(git rev-parse HEAD)
+            python3 .github/update-readme-version.py --only-if-newer "$RELEASE_VERSION"
+            if git diff --quiet -- README.md; then
+              exit 0
+            fi
+
+            git add -- README.md
+            git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com \
+              commit -m "docs: update README to $RELEASE_VERSION"
+            if git push origin HEAD:refs/heads/main; then
+              exit 0
+            fi
+
+            remote_head=$(git ls-remote --exit-code origin refs/heads/main | cut -f 1)
+            if [[ "$remote_head" == "$base" || "$attempt" == 3 ]]; then
+              exit 1
+            fi
+          done

@@ -12,6 +12,7 @@ STABLE_VERSION = rf"^\*\*Latest stable release:\*\* `({RELEASE})`"
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("version", help="published release version, such as 0.1.0")
+    parser.add_argument("--only-if-newer", action="store_true", help="skip an equal or older release")
     args = parser.parse_args()
     if not re.fullmatch(RELEASE, args.version):
         parser.error("use a release version in X.Y.Z format")
@@ -21,7 +22,14 @@ def main():
     if len(versions) != 1:
         parser.error("expected one 'Latest stable release' line in README.md")
 
-    old_version = re.escape(versions[0])
+    current = versions[0]
+    if args.only_if_newer and tuple(map(int, args.version.split("."))) <= tuple(
+        map(int, current.split("."))
+    ):
+        print(f"README already points to {current}. Skipping {args.version}.")
+        return
+
+    old_version = re.escape(current)
     examples = (
         (rf"^(\*\*Latest stable release:\*\* `){old_version}(`)", 1),
         (rf"(io\.github\.brayandm:database-seeder-(?:cli|spring-boot-starter):){old_version}([`\"])", 2),
