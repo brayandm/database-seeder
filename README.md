@@ -49,7 +49,7 @@ public class OrderSeeder implements SeedTask<Void> {
 
 Running `OrderSeeder` runs `CustomerSeeder` first. With `--scale=2`, the customer seeder returns six IDs. The example uses in-memory values to show how results flow between seeders.
 
-**Latest stable release:** `0.1.1` ([Maven Central](https://central.sonatype.com/artifact/io.github.brayandm/database-seeder-cli))
+**Latest stable release:** `0.2.1` ([Maven Central](https://central.sonatype.com/artifact/io.github.brayandm/database-seeder-cli))
 
 ## Run with Gradle
 
@@ -69,7 +69,7 @@ repositories {
 }
 
 dependencies {
-    implementation("io.github.brayandm:database-seeder-cli:0.1.1")
+    implementation("io.github.brayandm:database-seeder-cli:0.2.1")
 }
 
 tasks.register<JavaExec>("seed") {
@@ -100,7 +100,7 @@ transitively.
     <dependency>
         <groupId>io.github.brayandm</groupId>
         <artifactId>database-seeder-cli</artifactId>
-        <version>0.1.1</version>
+        <version>0.2.1</version>
     </dependency>
 </dependencies>
 ```
@@ -255,7 +255,7 @@ repositories {
 }
 
 dependencies {
-    implementation("io.github.brayandm:database-seeder-spring-boot-starter:0.1.1")
+    implementation("io.github.brayandm:database-seeder-spring-boot-starter:0.2.1")
 }
 
 tasks.register<JavaExec>("seed") {
@@ -292,7 +292,7 @@ name of your application's `@SpringBootApplication` class. Run Maven with JDK 21
     <dependency>
         <groupId>io.github.brayandm</groupId>
         <artifactId>database-seeder-spring-boot-starter</artifactId>
-        <version>0.1.1</version>
+        <version>0.2.1</version>
     </dependency>
 </dependencies>
 
