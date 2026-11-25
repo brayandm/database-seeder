@@ -91,6 +91,11 @@ class SeederCliTest {
         "--seeder",
         "--seeder=missing",
         "--linear=true",
+        "--max-parallel",
+        "--max-parallel=0",
+        "--max-parallel=-1",
+        "--max-parallel=1.5",
+        "--max-parallel=2147483648",
         "--unknown"
       })
   void rejectsInvalidArgumentsBeforeRunning(String argument) {
@@ -135,6 +140,29 @@ class SeederCliTest {
     assertEquals(1, run(List.of(new Posts())));
     assertTrue(errors.toString(StandardCharsets.UTF_8).contains("Missing seeder"));
     assertFalse(output.toString(StandardCharsets.UTF_8).contains("Started "));
+  }
+
+  @Test
+  void dryRunReportsMaxParallelAndRejectsCombiningItWithLinear() {
+    assertEquals(0, run(List.of(new Other()), "--dry-run", "--max-parallel=4"));
+    assertTrue(output.toString(StandardCharsets.UTF_8).contains("max-parallel=4"));
+    assertEquals(2, run(List.of(), "--linear", "--max-parallel=4"));
+  }
+
+  @Test
+  void dryRunShowsThatIndependentSeedersRunOneAtATimeWithASingleSlot() {
+    assertEquals(
+        0, run(List.of(new Posts(), new Users(), new Other()), "--dry-run", "--max-parallel=1"));
+    assertEquals(
+        List.of(
+            "Dry run (one at a time, scale=1.0, max-parallel=1)",
+            "1. "
+                + Users.class.getName()
+                + ", "
+                + Other.class.getName()
+                + " (independent, one at a time)",
+            "2. " + Posts.class.getName()),
+        output.toString(StandardCharsets.UTF_8).lines().toList());
   }
 
   @Test

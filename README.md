@@ -183,6 +183,7 @@ exec mvn compile exec:exec@seed "-Dseed.args=${1:-}"
 | `--seeder=<class>` | Runs the selected seeder and its dependencies. Accepts a simple name when unique or a fully qualified class name. Omit it to run all available seeders. |
 | `--only` | Runs just the selected seeder. Requires `--seeder`. Results from its dependencies are unavailable in this run. |
 | `--linear` | Runs tasks sequentially. Eligible tasks run in parallel by default. |
+| `--max-parallel=<N>` | Runs at most `N` seeders concurrently per execution. Use a positive integer and omit `--linear`. The default has no explicit cap. |
 | `--scale=<number>` | Sets a finite positive scale, defaulting to `1`. Seeders apply it through methods such as `context.scaled(3)`. |
 | `--verbose` | Adds timestamps, durations, counters, fully qualified names, and execution settings to the live CLI output. |
 | `--list` | Prints fully qualified seeder class names, one per line in alphabetical order, without running them. Use it without `--seeder` or `--only`. |
@@ -194,9 +195,17 @@ exec mvn compile exec:exec@seed "-Dseed.args=${1:-}"
 ./mvnw compile exec:exec@seed -Dseed.args="--dry-run --seeder=OrderSeeder"
 ```
 
-In parallel mode, the plan groups seeders by dependency depth. During execution,
+With `--max-parallel`, the plan shows the concurrency limit. The groups show
+dependency depth, including when `--max-parallel=1` runs seeders one at a time.
+During execution,
 each seeder can start as soon as its own dependencies finish, even when other
 seeders in an earlier group are still running.
+
+Use `./gradlew seed --args="--max-parallel=4"` to cap concurrency, or add
+`--max-parallel=4` to Maven's `seed.args`. The cap applies to seeder invocations
+started by the runner. Any threads or connections created inside a seeder are
+managed by that seeder. With `--max-parallel=1`, independent branches are still
+eligible to continue after another branch fails.
 
 By default, the CLI prints a live start and completion or failure line for each seeder. Any output written directly by your seeders also goes to the console.
 

@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -211,6 +212,8 @@ public final class SeederRunner {
 
   private void executeParallel(List<Class<? extends SeedTask<?>>> order, SeedOptions options) {
     var results = new LinkedHashMap<Class<? extends SeedTask<?>>, CompletableFuture<Object>>();
+    var slots =
+        options.maxParallel() < order.size() ? new Semaphore(options.maxParallel(), true) : null;
     try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
       for (var task : order) {
         var dependencies =
@@ -223,7 +226,8 @@ public final class SeederRunner {
         results.put(
             task,
             ready.thenApplyAsync(
-                ignored -> invoke(task, completed(dependencies), options), executor));
+                ignored -> invokeWithSlot(task, completed(dependencies), options, slots),
+                executor));
       }
       CompletableFuture.allOf(results.values().toArray(CompletableFuture<?>[]::new)).join();
     } catch (CompletionException failure) {
@@ -232,6 +236,22 @@ public final class SeederRunner {
         case Error cause -> throw cause;
         default -> throw failure;
       }
+    }
+  }
+
+  private Object invokeWithSlot(
+      Class<? extends SeedTask<?>> task,
+      Map<Class<? extends SeedTask<?>>, Object> inputs,
+      SeedOptions options,
+      Semaphore slots) {
+    if (slots == null) {
+      return invoke(task, inputs, options);
+    }
+    slots.acquireUninterruptibly();
+    try {
+      return invoke(task, inputs, options);
+    } finally {
+      slots.release();
     }
   }
 

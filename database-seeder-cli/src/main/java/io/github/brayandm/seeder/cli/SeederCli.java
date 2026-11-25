@@ -1,5 +1,6 @@
 package io.github.brayandm.seeder.cli;
 
+import io.github.brayandm.seeder.SeedOptions;
 import io.github.brayandm.seeder.SeedTask;
 import io.github.brayandm.seeder.SeederEvent;
 import io.github.brayandm.seeder.SeederRunner;
@@ -20,12 +21,13 @@ import java.util.stream.Collectors;
 public final class SeederCli {
   private static final String HELP =
       """
-      Usage: [--seeder=<class>] [--only] [--linear] [--scale=<number>] [--verbose] [--discover] [--list | --dry-run] [--help]
+      Usage: [--seeder=<class>] [--only] [--linear | --max-parallel=<N>] [--scale=<number>] [--verbose] [--discover] [--list | --dry-run] [--help]
 
         --seeder  Run the named seeder and its dependencies. Accepts a fully
                   qualified class name or an unambiguous simple name.
         --only    Run just the named seeder. Requires --seeder.
         --linear  Run seeders sequentially.
+        --max-parallel Limit the number of active seeders in a parallel run.
         --scale   Set a finite positive scale. Defaults to 1.
         --verbose Show timestamps, durations, counters, full names and execution settings.
         --discover Discover annotated seeders with public no-argument constructors.
@@ -187,11 +189,16 @@ public final class SeederCli {
 
   private static void printPlan(
       List<List<Class<? extends SeedTask<?>>>> groups, Arguments command, PrintStream out) {
+    int limit = command.options().maxParallel();
+    boolean capped = limit != SeedOptions.UNLIMITED;
+    String mode =
+        command.options().parallel() ? (limit == 1 ? "one at a time" : "parallel") : "linear";
     out.println(
         "Dry run ("
-            + (command.options().parallel() ? "parallel" : "linear")
+            + mode
             + ", scale="
             + command.options().scale()
+            + (capped ? ", max-parallel=" + limit : "")
             + ")");
     if (groups.isEmpty()) {
       out.println("No seeders to run.");
@@ -199,7 +206,17 @@ public final class SeederCli {
     for (int i = 0; i < groups.size(); i++) {
       var group = groups.get(i);
       var names = group.stream().map(Class::getName).collect(Collectors.joining(", "));
-      out.println((i + 1) + ". " + names + (group.size() > 1 ? " (can run in parallel)" : ""));
+      String note = "";
+      if (group.size() > 1) {
+        if (limit == 1) {
+          note = " (independent, one at a time)";
+        } else if (group.size() > limit) {
+          note = " (up to " + limit + " at a time)";
+        } else {
+          note = " (can run in parallel)";
+        }
+      }
+      out.println((i + 1) + ". " + names + note);
     }
     out.flush();
   }

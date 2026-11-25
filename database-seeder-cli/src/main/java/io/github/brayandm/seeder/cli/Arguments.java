@@ -16,6 +16,7 @@ record Arguments(
     var seen = new HashSet<String>();
     String seeder = null;
     double scale = SeedOptions.DEFAULT.scale();
+    int maxParallel = SeedOptions.UNLIMITED;
 
     for (var arg : args) {
       int separator = arg.indexOf('=');
@@ -28,6 +29,7 @@ record Arguments(
       switch (option) {
         case "--seeder" -> seeder = requireValue(option, value);
         case "--scale" -> scale = parseScale(requireValue(option, value));
+        case "--max-parallel" -> maxParallel = parseMaxParallel(requireValue(option, value));
         case "--only", "--linear", "--help", "--verbose", "--discover", "--list", "--dry-run" -> {
           if (value != null) {
             throw new IllegalArgumentException(option + " does not take a value");
@@ -49,7 +51,11 @@ record Arguments(
     if (only && seeder == null) {
       throw new IllegalArgumentException("--only requires --seeder");
     }
-    var options = new SeedOptions(!seen.contains("--linear"), scale, SeedOptions.DEFAULT.seed());
+    boolean linear = seen.contains("--linear");
+    if (linear && seen.contains("--max-parallel")) {
+      throw new IllegalArgumentException("--linear cannot be combined with --max-parallel");
+    }
+    var options = new SeedOptions(!linear, scale, SeedOptions.DEFAULT.seed(), maxParallel);
     return new Arguments(
         seeder,
         only,
@@ -74,5 +80,18 @@ record Arguments(
     } catch (NumberFormatException failure) {
       throw new IllegalArgumentException("Invalid --scale: " + value, failure);
     }
+  }
+
+  private static int parseMaxParallel(String value) {
+    try {
+      int limit = Integer.parseInt(value);
+      if (limit > 0) {
+        return limit;
+      }
+    } catch (NumberFormatException failure) {
+      throw new IllegalArgumentException(
+          "--max-parallel requires a positive integer: " + value, failure);
+    }
+    throw new IllegalArgumentException("--max-parallel requires a positive integer: " + value);
   }
 }

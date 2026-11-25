@@ -14,6 +14,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.LongStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -97,6 +98,80 @@ class SeederRunnerTest {
     long seed = options.seed() ^ ThreadedSeeder.class.getName().hashCode();
     var expected = new SplittableRandom(seed).longs(10_000).sorted().toArray();
     assertArrayEquals(expected, seeder.draws);
+  }
+
+  @Test
+  void capsActiveSeedersAndLetsQueuedWorkFinish() throws Exception {
+    var entered = new CountDownLatch(2);
+    var release = new CountDownLatch(1);
+    var extraEntered = new CountDownLatch(1);
+    var active = new AtomicInteger();
+    var completed = new AtomicInteger();
+    var runner =
+        new SeederRunner(
+            List.of(new Users(), new Independent(new CountDownLatch(0)), context -> null),
+            event -> {
+              if (event.status() == SeederEvent.Status.STARTED) {
+                if (active.incrementAndGet() > 2) {
+                  extraEntered.countDown();
+                }
+                entered.countDown();
+                try {
+                  assertTrue(release.await(5, TimeUnit.SECONDS));
+                } catch (InterruptedException failure) {
+                  Thread.currentThread().interrupt();
+                  throw new AssertionError(failure);
+                }
+              } else {
+                active.decrementAndGet();
+                completed.incrementAndGet();
+              }
+            });
+    var run =
+        new FutureTask<>(
+            () -> {
+              runner.runAll(new SeedOptions(true, 1, 0, 2));
+              return null;
+            });
+    Thread.startVirtualThread(run);
+    try {
+      assertTrue(entered.await(5, TimeUnit.SECONDS));
+      assertFalse(extraEntered.await(100, TimeUnit.MILLISECONDS));
+    } finally {
+      release.countDown();
+    }
+    run.get(5, TimeUnit.SECONDS);
+    assertEquals(3, completed.get());
+    assertEquals(1, extraEntered.getCount());
+  }
+
+  @Test
+  void releasesTheOnlySlotWhenASeederFails() throws Exception {
+    var independentCompleted = new AtomicBoolean();
+    var dependent = new MustNotRun();
+    var runner =
+        new SeederRunner(
+            List.of(
+                new Failing(new CountDownLatch(0)),
+                dependent,
+                new Independent(new CountDownLatch(0))),
+            event -> {
+              if (event.seeder() == Independent.class
+                  && event.status() == SeederEvent.Status.COMPLETED) {
+                independentCompleted.set(true);
+              }
+            });
+    var run =
+        new FutureTask<>(
+            () ->
+                assertThrows(
+                    IllegalStateException.class,
+                    () -> runner.runAll(new SeedOptions(true, 1, 0, 1))));
+    Thread.startVirtualThread(run);
+
+    assertEquals("intentional failure", run.get(5, TimeUnit.SECONDS).getCause().getMessage());
+    assertTrue(independentCompleted.get());
+    assertFalse(dependent.ran);
   }
 
   @Test
