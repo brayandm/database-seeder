@@ -1,5 +1,6 @@
 package io.github.brayandm.seeder.cli;
 
+import io.github.brayandm.seeder.SeedOptions;
 import io.github.brayandm.seeder.SeederEvent;
 import java.io.PrintStream;
 import java.time.Instant;
@@ -20,14 +21,17 @@ final class ConsoleProgress implements Consumer<SeederEvent> {
       out.printf("[%s] Starting seeders%n", Instant.now());
       var options = command.options();
       var target = command.seeder() == null ? "all" : command.seeder();
+      int limit = options.maxParallel();
+      String mode = options.parallel() ? (limit == 1 ? "one at a time" : "parallel") : "sequential";
       out.printf(
           Locale.ROOT,
-          "  mode=%s scale=%s seed=%d target=%s only=%b%n",
-          options.parallel() ? "parallel" : "sequential",
+          "  mode=%s scale=%s seed=%d target=%s only=%b%s%n",
+          mode,
           options.scale(),
           options.seed(),
           target,
-          command.only());
+          command.only(),
+          limit == SeedOptions.UNLIMITED ? "" : " max-parallel=" + limit);
       out.flush();
     }
   }

@@ -194,7 +194,18 @@ class SeederCliTest {
   @Test
   void dryRunValidatesDependenciesOfTheSelectedSeeder() {
     assertEquals(1, run(List.of(new Posts()), "--dry-run", "--seeder=Posts"));
-    assertTrue(errors.toString(StandardCharsets.UTF_8).contains("Missing seeder"));
+    assertEquals(
+        List.of("Missing seeder: " + Users.class.getName() + " in Posts"),
+        errors.toString(StandardCharsets.UTF_8).lines().toList());
+    assertEquals(0, output.size());
+  }
+
+  @Test
+  void dryRunReportsTheCycleWithoutAStackTrace() {
+    assertEquals(1, run(List.of(new Cyclic()), "--dry-run"));
+    assertEquals(
+        List.of("Circular dependency: Cyclic -> Cyclic"),
+        errors.toString(StandardCharsets.UTF_8).lines().toList());
     assertEquals(0, output.size());
   }
 
@@ -216,6 +227,15 @@ class SeederCliTest {
 
     assertEquals(0, SeederCli.run(new String[0], List.of(task), buffered, System.err));
     assertTrue(output.toString(StandardCharsets.UTF_8).contains("Completed "));
+  }
+
+  @Test
+  void verboseReportsTheEffectiveConcurrencyLimit() {
+    assertEquals(0, run(List.of(new Other()), "--verbose", "--max-parallel=1"));
+    var settings =
+        output.toString(StandardCharsets.UTF_8).lines().skip(1).findFirst().orElseThrow();
+    assertEquals(
+        "  mode=one at a time scale=1.0 seed=0 target=all only=false max-parallel=1", settings);
   }
 
   @Test
@@ -241,6 +261,9 @@ class SeederCliTest {
 
   @Seeder(dependsOn = Broken.class)
   private static final class Blocked extends Marker {}
+
+  @Seeder(dependsOn = Cyclic.class)
+  private static final class Cyclic extends Marker {}
 
   private int run(List<? extends SeedTask<?>> seeders, String... args) {
     return SeederCli.run(

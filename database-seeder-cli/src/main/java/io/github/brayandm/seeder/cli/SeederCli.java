@@ -167,10 +167,17 @@ public final class SeederCli {
       }
 
       if (command.dryRun()) {
-        var groups =
-            target == null
-                ? runner.planAll(command.options())
-                : runner.plan(target, command.only(), command.options());
+        List<List<Class<? extends SeedTask<?>>>> groups;
+        try {
+          groups =
+              target == null
+                  ? runner.planAll(command.options())
+                  : runner.plan(target, command.only(), command.options());
+        } catch (IllegalArgumentException failure) {
+          err.println(failure.getMessage());
+          err.flush();
+          return 1;
+        }
         printPlan(groups, command, out);
       } else if (target == null) {
         runner.runAll(command.options());
